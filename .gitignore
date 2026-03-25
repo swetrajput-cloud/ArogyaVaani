@@ -1,0 +1,68 @@
+# ─── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.pyc
+
+# ─── Virtual Environment ──────────────────────────────────────────────────────
+venv/
+env/
+.venv/
+ENV/
+
+# ─── Environment Variables (NEVER push these) ─────────────────────────────────
+.env
+*.env
+.env.local
+.env.production
+
+# ─── Database ─────────────────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ─── Node / Frontend ──────────────────────────────────────────────────────────
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+.npm
+
+# ─── Vite ─────────────────────────────────────────────────────────────────────
+frontend/.vite/
+
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ─── OS Files ─────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── VS Code ──────────────────────────────────────────────────────────────────
+.vscode/
+*.code-workspace
+
+# ─── PyCharm / JetBrains ──────────────────────────────────────────────────────
+.idea/
+
+# ─── Build / Dist ─────────────────────────────────────────────────────────────
+build/
+*.egg-info/
+dist/
+
+# ─── Coverage ─────────────────────────────────────────────────────────────────
+htmlcov/
+.coverage
+coverage.xml
+
+# ─── Docker ───────────────────────────────────────────────────────────────────
+*.env.docker
+
+# ─── Uploads / Data (optional - remove if you want CSV in repo) ───────────────
+backend/data/
