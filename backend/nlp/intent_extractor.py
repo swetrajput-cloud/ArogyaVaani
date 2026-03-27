@@ -1,12 +1,12 @@
-import anthropic
+from groq import Groq
 import json
+import re
 from config import settings
 
-client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+client = Groq(api_key=settings.GROQ_API_KEY.strip())
 
 SYSTEM_PROMPT = """You are a clinical NLP engine for AarogyaVaani, an Indian healthcare platform.
 Extract structured information from patient speech transcripts.
-
 Always respond with ONLY valid JSON in this exact format:
 {
   "topic": "string (main health topic discussed)",
@@ -27,29 +27,31 @@ No explanation, no markdown, only JSON."""
 async def extract_intent(transcript: str, language: str = "hindi") -> dict:
     if not transcript or not transcript.strip():
         return _empty_intent()
-
     try:
         user_prompt = f"""Patient language: {language}
 Patient said: "{transcript}"
-
 Extract clinical intent as JSON."""
 
-        message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=1000,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_prompt}]
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt}
+            ],
+            max_tokens=1000
         )
 
-        raw = message.content[0].text.strip()
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        return json.loads(raw)
+        raw = response.choices[0].message.content.strip()
 
+        # Extract JSON more robustly
+        json_match = re.search(r'\{.*\}', raw, re.DOTALL)
+        if json_match:
+            raw = json_match.group()
+
+        return json.loads(raw)
     except Exception as e:
         print(f"[NLP] Error: {e}")
+        print(f"[NLP] Raw response: {raw}")
         return _empty_intent()
 
 def _empty_intent() -> dict:
