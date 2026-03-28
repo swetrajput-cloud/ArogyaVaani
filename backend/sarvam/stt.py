@@ -18,9 +18,6 @@ def convert_twilio_wav_to_16k(audio_bytes: bytes) -> bytes:
 
         print(f"[STT] Input: {framerate}Hz, {channels}ch, {sampwidth}byte, {len(raw_frames)} raw bytes")
 
-        if framerate == 16000 and sampwidth == 2 and channels == 1:
-            return audio_bytes
-
         if sampwidth == 1:
             MULAW_BIAS = 33
             samples = []
@@ -34,11 +31,10 @@ def convert_twilio_wav_to_16k(audio_bytes: bytes) -> bytes:
                     val = -val
                 samples.append(max(-32768, min(32767, val)))
             pcm = np.array(samples, dtype=np.int16)
+        elif sampwidth == 2:
+            pcm = np.frombuffer(raw_frames, dtype=np.int16)
         else:
-            if sampwidth == 2:
-                pcm = np.frombuffer(raw_frames, dtype=np.int16)
-            else:
-                pcm = np.frombuffer(raw_frames, dtype=np.int8).astype(np.int16) * 256
+            pcm = np.frombuffer(raw_frames, dtype=np.int8).astype(np.int16) * 256
 
         if channels == 2:
             pcm = pcm.reshape(-1, 2).mean(axis=1).astype(np.int16)
@@ -49,6 +45,12 @@ def convert_twilio_wav_to_16k(audio_bytes: bytes) -> bytes:
             x_old = np.linspace(0, 1, original_len)
             x_new = np.linspace(0, 1, target_len)
             pcm   = np.interp(x_new, x_old, pcm).astype(np.int16)
+
+        # Trim to max 25 seconds to stay under Sarvam 30s limit
+        max_samples = 25 * 16000
+        if len(pcm) > max_samples:
+            print(f"[STT] Trimming audio from {len(pcm)} to {max_samples} samples (25s max)")
+            pcm = pcm[:max_samples]
 
         out_buf = io.BytesIO()
         with wave.open(out_buf, 'wb') as wav_out:

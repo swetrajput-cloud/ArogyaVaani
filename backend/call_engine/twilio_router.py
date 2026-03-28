@@ -161,7 +161,7 @@ async def language_select(
     response.record(
         action=f"{BASE_URL}/twilio/record-answer?call_sid={call_sid}&q_index=0",
         method="POST",
-        max_length=60,
+        max_length=25,
         finish_on_key="#",
         play_beep=True,
         transcribe=False,
@@ -253,7 +253,7 @@ async def record_answer(
         response.record(
             action=f"{BASE_URL}/twilio/record-answer?call_sid={call_sid}&q_index={next_index}",
             method="POST",
-            max_length=60,
+            max_length=25,
             finish_on_key="#",
             play_beep=True,
             transcribe=False,
