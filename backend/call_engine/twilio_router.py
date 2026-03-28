@@ -34,6 +34,20 @@ def _lang_code(language: str) -> str:
     }.get(language.lower(), "hi-IN")
 
 
+def _twiml_lang(language: str) -> str:
+    return "en-IN" if language == "english" else "hi-IN"
+
+
+def _voice(language: str) -> str:
+    voices = {
+        "hindi":   "Polly.Aditi",
+        "english": "Polly.Raveena",
+        "marathi": "Polly.Aditi",
+        "tamil":   "Polly.Aditi",
+    }
+    return voices.get(language, "Polly.Aditi")
+
+
 @router.post("/answered")
 async def call_answered(
     request: Request,
@@ -66,6 +80,7 @@ async def call_answered(
             "patient_name":       patient.name,
             "condition":          patient.condition,
             "risk_tier":          patient.current_risk_tier,
+            "health_camp_name":   patient.health_camp_name or "",
             "module_type":        patient.module_type,
             "language":           "hindi",
             "question_index":     0,
@@ -119,7 +134,7 @@ async def language_select(
     if default_lang == "hindi" and not Digits:
         language = "hindi"
     else:
-        lang_map = {"1": "hindi", "2": "marathi", "3": "english"}
+        lang_map = {"1": "hindi", "2": "marathi", "3": "english", "4": "tamil"}
         language = lang_map.get(Digits, "hindi")
 
     state["language"] = language
@@ -130,28 +145,28 @@ async def language_select(
         condition=state["condition"],
         risk_level=state["risk_tier"],
         language=language,
-        max_questions=5,
+        camp=state.get("health_camp_name", ""),
+        max_questions=1,
     )
     state["script"] = script
     state["question_index"] = 0
 
-    twiml_lang = "en-IN" if language == "english" else "hi-IN"
-    voice = "Polly.Raveena" if language == "hindi" else "Polly.Aditi"
+    lang = language
     greeting = script["greeting"]
     first_q = script["questions"][0]["text"] if script["questions"] else script["closing"]
 
     response = VoiceResponse()
-    response.say(greeting, language=twiml_lang, voice=voice)
+    response.say(greeting, language=_twiml_lang(lang), voice=_voice(lang))
     response.pause(length=1)
-    response.say(first_q, language=twiml_lang, voice=voice)
+    response.say(first_q, language=_twiml_lang(lang), voice=_voice(lang))
     response.record(
         action=f"{BASE_URL}/twilio/record-answer?call_sid={call_sid}&q_index=0",
         method="POST",
-        max_length=30,
+        max_length=60,
         finish_on_key="#",
         play_beep=True,
         transcribe=False,
-        timeout=5,
+        timeout=8,
     )
     return Response(content=str(response), media_type="application/xml")
 
@@ -174,19 +189,14 @@ async def record_answer(
 
     language = state["language"]
     script = state["script"]
-    twiml_lang = "en-IN" if language == "english" else "hi-IN"
-    voice = "Polly.Raveena" if language == "hindi" else "Polly.Aditi"
     transcript = ""
 
     if RecordingUrl:
         try:
             from sarvam.stt import transcribe_audio, download_recording_with_retry
-
             auth = (settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
             audio_bytes = await download_recording_with_retry(RecordingUrl, auth)
-
             print(f"[Twilio] Final recording size: {len(audio_bytes)} bytes")
-
             if len(audio_bytes) > 5000:
                 transcript = await transcribe_audio(
                     audio_bytes, language=_lang_code(language)
@@ -194,7 +204,6 @@ async def record_answer(
                 print(f"[Twilio] Transcript q{q_index}: {transcript}")
             else:
                 print(f"[Twilio] Recording too small, skipping STT")
-
         except Exception as e:
             print(f"[Twilio] STT Error: {e}")
 
@@ -205,7 +214,7 @@ async def record_answer(
         urgent_msg = get_urgent_alert(language)
         await _save_call_record(call_sid, state, "RED", True, "Urgent keyword detected")
         response = VoiceResponse()
-        response.say(urgent_msg, language=twiml_lang, voice=voice)
+        response.say(urgent_msg, language=_twiml_lang(language), voice=_voice(language))
         response.hangup()
         return Response(content=str(response), media_type="application/xml")
 
@@ -229,19 +238,19 @@ async def record_answer(
 
     if next_index < len(script["questions"]):
         next_q = script["questions"][next_index]["text"]
-        response.say(next_q, language=twiml_lang, voice=voice)
+        response.say(next_q, language=_twiml_lang(language), voice=_voice(language))
         response.record(
             action=f"{BASE_URL}/twilio/record-answer?call_sid={call_sid}&q_index={next_index}",
             method="POST",
-            max_length=30,
+            max_length=60,
             finish_on_key="#",
             play_beep=True,
             transcribe=False,
-            timeout=5,
+            timeout=8,
         )
     else:
         await _save_call_record(call_sid, state, risk_tier, escalate, reason, nlp_output)
-        response.say(script["closing"], language=twiml_lang, voice=voice)
+        response.say(script["closing"], language=_twiml_lang(language), voice=_voice(language))
         response.hangup()
 
     return Response(content=str(response), media_type="application/xml")
@@ -269,7 +278,6 @@ async def call_status(
 
 @router.post("/vaccination-reminder-twiml")
 async def vaccination_reminder_twiml(request: Request):
-    """TwiML for vaccination reminder call — speaks in Hindi + English."""
     vaccine = request.query_params.get("vaccine", "टीका")
     due     = request.query_params.get("due", "अगले सप्ताह")
 
@@ -295,7 +303,6 @@ async def vaccination_reminder_twiml(request: Request):
 
 @router.post("/vaccination-status")
 async def vaccination_call_status(request: Request):
-    """Twilio status callback for vaccination reminder calls."""
     reminder_id = request.query_params.get("reminder_id")
     form        = await request.form()
     status      = form.get("CallStatus", "")
