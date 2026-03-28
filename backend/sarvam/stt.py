@@ -1,7 +1,6 @@
 import httpx
 import io
 import wave
-import struct
 import numpy as np
 from config import settings
 
@@ -9,7 +8,6 @@ SARVAM_STT_URL = "https://api.sarvam.ai/speech-to-text"
 
 
 def convert_twilio_wav_to_16k(audio_bytes: bytes) -> bytes:
-    """Convert Twilio 8kHz mulaw WAV to 16kHz PCM WAV for Sarvam."""
     try:
         with wave.open(io.BytesIO(audio_bytes), 'rb') as wav_in:
             channels   = wav_in.getnchannels()
@@ -19,13 +17,10 @@ def convert_twilio_wav_to_16k(audio_bytes: bytes) -> bytes:
 
         print(f"[STT] Input: {framerate}Hz, {channels}ch, {sampwidth}byte")
 
-        # If already good, return as-is
         if framerate == 16000 and sampwidth == 2 and channels == 1:
             return audio_bytes
 
-        # Step 1: Decode mulaw (8-bit) to 16-bit PCM
         if sampwidth == 1:
-            # mulaw decode table
             MULAW_BIAS = 33
             samples = []
             for byte in raw_frames:
@@ -40,18 +35,15 @@ def convert_twilio_wav_to_16k(audio_bytes: bytes) -> bytes:
             pcm = np.array(samples, dtype=np.int16)
             sampwidth = 2
         else:
-            # Already PCM
             if sampwidth == 2:
                 pcm = np.frombuffer(raw_frames, dtype=np.int16)
             else:
                 pcm = np.frombuffer(raw_frames, dtype=np.int8).astype(np.int16) * 256
 
-        # Step 2: Stereo to mono
         if channels == 2:
             pcm = pcm.reshape(-1, 2).mean(axis=1).astype(np.int16)
             channels = 1
 
-        # Step 3: Resample to 16000Hz using linear interpolation
         if framerate != 16000:
             original_len = len(pcm)
             target_len   = int(original_len * 16000 / framerate)
@@ -59,7 +51,6 @@ def convert_twilio_wav_to_16k(audio_bytes: bytes) -> bytes:
             x_new = np.linspace(0, 1, target_len)
             pcm   = np.interp(x_new, x_old, pcm).astype(np.int16)
 
-        # Write output WAV
         out_buf = io.BytesIO()
         with wave.open(out_buf, 'wb') as wav_out:
             wav_out.setnchannels(1)
@@ -106,8 +97,3 @@ async def transcribe_audio(audio_bytes: bytes, language: str = "hi-IN") -> str:
     except Exception as e:
         print(f"[STT] Error: {e}")
         return ""
-```
-
-Now add `numpy` to `backend/requirements.txt`:
-```
-numpy==1.26.4
