@@ -1,4 +1,5 @@
 import httpx
+import asyncio
 import base64
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import Response
@@ -42,8 +43,7 @@ async def call_answered(
     call_sid = CallSid or request.query_params.get("CallSid", "")
     print(f"[Twilio] Call answered: {call_sid} From:{From} To:{To}")
 
-    # FIX: outbound call → From=Twilio number, To=patient number
-    patient_phone = To
+    patient_phone = To  # outbound: To = patient number
 
     db = SessionLocal()
     try:
@@ -163,6 +163,9 @@ async def record_answer(
     if RecordingUrl:
         try:
             from sarvam.stt import transcribe_audio
+
+            await asyncio.sleep(3)  # wait for Twilio to finish uploading recording
+
             auth = (settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
             async with httpx.AsyncClient(timeout=30) as client:
                 audio_resp = await client.get(
@@ -170,10 +173,17 @@ async def record_answer(
                     auth=auth
                 )
                 audio_bytes = audio_resp.content
-            transcript = await transcribe_audio(
-                audio_bytes, language=_lang_code(language)
-            )
-            print(f"[Twilio] Transcript q{q_index}: {transcript}")
+                print(f"[Twilio] Recording size: {len(audio_bytes)} bytes")
+                print(f"[Twilio] Recording status: {audio_resp.status_code}")
+
+            if len(audio_bytes) > 1000:  # only transcribe if we got real audio
+                transcript = await transcribe_audio(
+                    audio_bytes, language=_lang_code(language)
+                )
+                print(f"[Twilio] Transcript q{q_index}: {transcript}")
+            else:
+                print(f"[Twilio] Recording too small, skipping STT")
+
         except Exception as e:
             print(f"[Twilio] STT Error: {e}")
 
