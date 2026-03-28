@@ -28,6 +28,13 @@ LANGUAGE_NAMES = {
     "tamil":   "தமிழ்",
 }
 
+# Branching: based on risk tier, how many questions to ask
+QUESTIONS_BY_RISK = {
+    "RED":   3,
+    "AMBER": 3,
+    "GREEN": 2,
+}
+
 
 def get_greeting(
     name: str,
@@ -68,7 +75,7 @@ def get_questions_for_patient(
     condition: str,
     risk_level: str,
     language: str = "hindi",
-    max_questions: int = 1,
+    max_questions: int = 3,
 ) -> list[dict]:
     tier_map = {
         "RED": "HIGH", "AMBER": "MODERATE", "GREEN": "LOW",
@@ -76,7 +83,13 @@ def get_questions_for_patient(
     }
     mapped_risk = tier_map.get(risk_level.upper(), "MODERATE")
 
-    matched = []
+    # Priority 1: condition-specific + risk-matched questions
+    priority = []
+    # Priority 2: condition-specific any risk
+    condition_only = []
+    # Priority 3: general questions for this risk
+    general = []
+
     for q in QUESTIONS:
         condition_match = (
             "all" in q["conditions"] or
@@ -86,16 +99,32 @@ def get_questions_for_patient(
             risk_level.upper() in q["risk_levels"] or
             mapped_risk in q["risk_levels"]
         )
-        if condition_match and risk_match:
-            question_text = q.get(language, q.get("hindi", ""))
-            if question_text:
-                matched.append({
-                    "id": q["id"],
-                    "category": q["category"],
-                    "text": question_text,
-                })
+        question_text = q.get(language, q.get("hindi", ""))
+        if not question_text:
+            continue
 
-    return matched[:max_questions]
+        entry = {
+            "id":       q["id"],
+            "category": q["category"],
+            "text":     question_text,
+        }
+
+        if condition_match and risk_match:
+            priority.append(entry)
+        elif condition_match:
+            condition_only.append(entry)
+        elif risk_match and "all" in q.get("conditions", []):
+            general.append(entry)
+
+    # Merge in priority order, deduplicate by id
+    seen = set()
+    merged = []
+    for q in priority + condition_only + general:
+        if q["id"] not in seen:
+            seen.add(q["id"])
+            merged.append(q)
+
+    return merged[:max_questions]
 
 
 def build_call_script(
@@ -105,19 +134,23 @@ def build_call_script(
     language: str = "hindi",
     camp: str = "",
     consultation_followups: Optional[list] = None,
-    max_questions: int = 1,
+    max_questions: int = None,
 ) -> dict:
+    # Auto-determine question count from risk if not explicitly set
+    if max_questions is None:
+        max_questions = QUESTIONS_BY_RISK.get(risk_level.upper(), 2)
+
     questions = get_questions_for_patient(
         condition, risk_level, language, max_questions
     )
 
-    # Fallback if no question matched
+    # Fallback if no questions matched
     if not questions:
         fallback = {
-            "hindi":   "बीप के बाद आप जो चाहें बताएं।",
-            "english": "After the beep, please tell us anything.",
-            "marathi": "बीपनंतर तुम्हाला काय सांगायचे ते सांगा।",
-            "tamil":   "பீப்க்கு பிறகு நீங்கள் சொல்ல விரும்புவதை சொல்லுங்கள்.",
+            "hindi":   "बीप के बाद अपना हाल बताएं — दर्द है, बुखार है, या कुछ और?",
+            "english": "After the beep, please describe how you are feeling today.",
+            "marathi": "बीपनंतर आपली तब्येत सांगा — वेदना, ताप किंवा इतर काही?",
+            "tamil":   "பீப்க்கு பிறகு உங்கள் நலனை சொல்லுங்கள்.",
         }
         questions = [{"id": "Q_FB", "category": "general", "text": fallback.get(language, fallback["hindi"])}]
 

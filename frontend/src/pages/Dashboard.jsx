@@ -25,7 +25,6 @@ export default function Dashboard() {
     fetchAppointments()
   }, [filter])
 
-  // Refresh appointments when a new appointment WebSocket message arrives
   useEffect(() => {
     const latest = messages[0]
     if (latest?.type === 'appointment') {
@@ -95,6 +94,12 @@ export default function Dashboard() {
           >
             🎯 Call Simulator
           </button>
+          <button
+            onClick={() => navigate('/analytics')}
+            className="flex items-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-orange-600 transition"
+          >
+            📊 Analytics
+          </button>
           {connected
             ? <span className="flex items-center gap-1 text-xs text-green-600"><Wifi size={13} /> Live</span>
             : <span className="flex items-center gap-1 text-xs text-gray-400"><WifiOff size={13} /> Offline</span>
@@ -107,10 +112,10 @@ export default function Dashboard() {
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             {[
-              { label: 'Total Patients', value: stats.total_patients, icon: <Users size={18} />,        color: 'text-blue-600 bg-blue-50'   },
-              { label: 'High Risk',      value: stats.red,            icon: <AlertTriangle size={18} />, color: 'text-red-600 bg-red-50'     },
+              { label: 'Total Patients', value: stats.total_patients, icon: <Users size={18} />,        color: 'text-blue-600 bg-blue-50'    },
+              { label: 'High Risk',      value: stats.red,            icon: <AlertTriangle size={18} />, color: 'text-red-600 bg-red-50'      },
               { label: 'Moderate',       value: stats.amber,          icon: <Activity size={18} />,      color: 'text-yellow-600 bg-yellow-50'},
-              { label: 'Low Risk',       value: stats.green,          icon: <Activity size={18} />,      color: 'text-green-600 bg-green-50' },
+              { label: 'Low Risk',       value: stats.green,          icon: <Activity size={18} />,      color: 'text-green-600 bg-green-50'  },
             ].map((s) => (
               <div key={s.label} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-center gap-3">
                 <div className={`p-2 rounded-lg ${s.color}`}>{s.icon}</div>
