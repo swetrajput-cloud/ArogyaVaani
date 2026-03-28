@@ -87,6 +87,7 @@ async def call_answered(
             "transcript_parts":   [],
             "script":             None,
             "overall_risk_score": patient.overall_risk_score or 0,
+            "record_saved":       False,  # guard against double-save
         }
     finally:
         db.close()
@@ -276,14 +277,8 @@ async def call_status(
 ):
     call_sid = CallSid or request.query_params.get("CallSid", "")
     print(f"[Twilio] Status: {call_sid} → {CallStatus} ({CallDuration}s)")
-    state = _call_states.get(call_sid)
-    if state:
-        await _save_call_record(
-            call_sid, state, "GREEN", False, "",
-            call_status=CallStatus,
-            duration=int(CallDuration) if CallDuration.isdigit() else 0,
-        )
-        _call_states.pop(call_sid, None)
+    # Just clean up state — record was already saved in record_answer
+    _call_states.pop(call_sid, None)
     return {"status": "ok"}
 
 
@@ -328,6 +323,12 @@ async def _save_call_record(
     call_sid, state, risk_tier, escalate, reason,
     nlp_output=None, call_status="completed", duration=0
 ):
+    # Guard: only save once per call
+    if state.get("record_saved"):
+        print(f"[Twilio] Record already saved for {call_sid}, skipping duplicate save")
+        return
+    state["record_saved"] = True
+
     full_transcript = " | ".join(state.get("transcript_parts", []))
     db = SessionLocal()
     try:
