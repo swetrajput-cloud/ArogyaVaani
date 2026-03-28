@@ -1,6 +1,5 @@
 import httpx
 import asyncio
-import base64
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import Response
 from twilio.twiml.voice_response import VoiceResponse, Gather
@@ -8,10 +7,12 @@ from config import settings
 from models.database import SessionLocal
 from models.patient import Patient
 from models.call_record import CallRecord
+from models.vaccination_reminder import VaccinationReminder
 from nlp.intent_extractor import extract_intent
 from nlp.risk_scorer import compute_risk
 from dashboard.ws_broadcaster import broadcast_update
 from models_ai.call_brain import build_call_script, is_urgent, get_urgent_alert
+from modules.vaccination_reminder_engine import mark_reminder_called
 from datetime import datetime
 import os
 
@@ -92,7 +93,6 @@ async def call_answered(
         voice="Polly.Aditi",
     )
     response.append(gather)
-
     response.redirect(
         f"{BASE_URL}/twilio/language-select?call_sid={call_sid}&default=hindi",
         method="POST"
@@ -265,6 +265,45 @@ async def call_status(
         )
         _call_states.pop(call_sid, None)
     return {"status": "ok"}
+
+
+@router.post("/vaccination-reminder-twiml")
+async def vaccination_reminder_twiml(request: Request):
+    """TwiML for vaccination reminder call — speaks in Hindi + English."""
+    vaccine = request.query_params.get("vaccine", "टीका")
+    due     = request.query_params.get("due", "अगले सप्ताह")
+
+    response = VoiceResponse()
+    response.say(
+        f"नमस्ते! आरोग्यवाणी से एक महत्वपूर्ण सूचना। "
+        f"आपके बच्चे का {vaccine} का टीका {due} को लगवाना है। "
+        f"कृपया अपने नजदीकी स्वास्थ्य केंद्र में जाएं। "
+        f"यह कॉल आरोग्यवाणी स्वास्थ्य सेवा द्वारा है। धन्यवाद।",
+        language="hi-IN",
+        voice="Polly.Aditi",
+    )
+    response.pause(length=1)
+    response.say(
+        f"Reminder: {vaccine} vaccination is due on {due}. "
+        f"Please visit your nearest health center. Thank you.",
+        language="en-IN",
+        voice="Polly.Raveena",
+    )
+    response.hangup()
+    return Response(content=str(response), media_type="application/xml")
+
+
+@router.post("/vaccination-status")
+async def vaccination_call_status(request: Request):
+    """Twilio status callback for vaccination reminder calls."""
+    reminder_id = request.query_params.get("reminder_id")
+    form        = await request.form()
+    status      = form.get("CallStatus", "")
+    call_sid    = form.get("CallSid", "")
+    print(f"[VaxReminder] Status: reminder={reminder_id} sid={call_sid} status={status}")
+    if reminder_id:
+        mark_reminder_called(int(reminder_id), call_sid, status)
+    return {"ok": True}
 
 
 async def _save_call_record(

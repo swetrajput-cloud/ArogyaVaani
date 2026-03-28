@@ -9,6 +9,7 @@ from config import settings
 from models.database import create_tables, SessionLocal
 from models.patient import Patient
 from models.vaccination import VaccinationSchedule
+from models.vaccination_reminder import VaccinationReminder
 
 # ─── Routers ──────────────────────────────────────────────────────────────────
 from routers.inbound import router as inbound_router
@@ -18,7 +19,8 @@ from routers.stats import router as stats_router
 from routers.simulate import router as simulate_router
 from routers.calls import router as calls_router
 from routers.vaccination import router as vaccination_router
-from call_engine.twilio_router import router as twilio_router  # NEW
+from routers.vaccination_reminder import router as vaccination_reminder_router
+from call_engine.twilio_router import router as twilio_router
 
 # ─── WebSocket / Media Stream ─────────────────────────────────────────────────
 from dashboard.ws_broadcaster import connect_client, disconnect_client
@@ -43,7 +45,8 @@ app.include_router(stats_router)
 app.include_router(simulate_router)
 app.include_router(calls_router)
 app.include_router(vaccination_router)
-app.include_router(twilio_router)  # NEW
+app.include_router(vaccination_reminder_router)
+app.include_router(twilio_router)
 
 # ─── WebSocket: Live Dashboard ────────────────────────────────────────────────
 @app.websocket("/ws/dashboard")
@@ -97,7 +100,7 @@ def derive_condition(row: dict) -> str:
     return ", ".join(parts) if parts else "General Monitoring"
 
 # ─── CSV Paths ────────────────────────────────────────────────────────────────
-CSV_PATH = os.path.join(os.path.dirname(__file__), "data", "patients.csv")
+CSV_PATH     = os.path.join(os.path.dirname(__file__), "data", "patients.csv")
 VAX_CSV_PATH = os.path.join(os.path.dirname(__file__), "data", "vaccination.csv")
 
 # ─── Seed: Patients ───────────────────────────────────────────────────────────
