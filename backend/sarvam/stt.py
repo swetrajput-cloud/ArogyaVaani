@@ -23,6 +23,8 @@ async def transcribe_audio(audio_bytes: bytes, language: str = "hi-IN") -> str:
                 data=data,
                 headers=headers,
             )
+            print(f"[STT] Status: {response.status_code}")
+            print(f"[STT] Response body: {response.text}")  # ADD THIS
             response.raise_for_status()
             result = response.json()
             return result.get("transcript", "")
