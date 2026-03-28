@@ -144,13 +144,15 @@ async def language_select(
     state["language"] = language
     print(f"[Twilio] Language selected: {language} (digits={Digits})")
 
+    # max_questions=None → build_call_script uses QUESTIONS_BY_RISK
+    # RED/AMBER → 3 questions, GREEN → 2 questions
     script = build_call_script(
         patient_name=state["patient_name"],
         condition=state["condition"],
         risk_level=state["risk_tier"],
         language=language,
         camp=state.get("health_camp_name", ""),
-        max_questions=1,
+        max_questions=None,
     )
     state["script"] = script
     state["question_index"] = 0
@@ -233,7 +235,6 @@ async def record_answer(
 
     if transcript and is_urgent(transcript, language):
         urgent_msg = get_urgent_alert(language)
-        # Still run NLP so we can detect appointment request even in urgent calls
         urgent_nlp = {}
         try:
             urgent_nlp = await extract_intent(transcript, language)
@@ -405,7 +406,6 @@ async def _save_call_record(
             db.commit()
             print(f"[Appointment] Created for patient {state['patient_id']}")
 
-            # Notify doctor on WhatsApp about new appointment request
             if settings.DOCTOR_PHONE:
                 _send_whatsapp(
                     to_phone=settings.DOCTOR_PHONE,
