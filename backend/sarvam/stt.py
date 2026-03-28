@@ -1,53 +1,71 @@
 import httpx
 import io
-import audioop
 import wave
+import struct
+import numpy as np
 from config import settings
 
 SARVAM_STT_URL = "https://api.sarvam.ai/speech-to-text"
 
 
 def convert_twilio_wav_to_16k(audio_bytes: bytes) -> bytes:
-    """Convert Twilio's 8kHz mulaw WAV to 16kHz PCM WAV for Sarvam."""
+    """Convert Twilio 8kHz mulaw WAV to 16kHz PCM WAV for Sarvam."""
     try:
-        # Read the original WAV
         with wave.open(io.BytesIO(audio_bytes), 'rb') as wav_in:
-            channels    = wav_in.getnchannels()
-            sampwidth   = wav_in.getsampwidth()
-            framerate   = wav_in.getframerate()
-            raw_frames  = wav_in.readframes(wav_in.getnframes())
+            channels   = wav_in.getnchannels()
+            sampwidth  = wav_in.getsampwidth()
+            framerate  = wav_in.getframerate()
+            raw_frames = wav_in.readframes(wav_in.getnframes())
 
-        print(f"[STT] Input audio: {framerate}Hz, {channels}ch, {sampwidth}byte width")
+        print(f"[STT] Input: {framerate}Hz, {channels}ch, {sampwidth}byte")
 
-        # If already 16kHz PCM, return as-is
-        if framerate == 16000 and sampwidth == 2:
+        # If already good, return as-is
+        if framerate == 16000 and sampwidth == 2 and channels == 1:
             return audio_bytes
 
-        # Step 1: Convert mulaw to linear PCM if needed
+        # Step 1: Decode mulaw (8-bit) to 16-bit PCM
         if sampwidth == 1:
-            raw_frames = audioop.ulaw2lin(raw_frames, 2)
-            sampwidth  = 2
+            # mulaw decode table
+            MULAW_BIAS = 33
+            samples = []
+            for byte in raw_frames:
+                byte = ~byte & 0xFF
+                sign = byte & 0x80
+                exp  = (byte >> 4) & 0x07
+                mant = byte & 0x0F
+                val  = ((mant << 1) + MULAW_BIAS) << (exp + 2)
+                if sign:
+                    val = -val
+                samples.append(max(-32768, min(32767, val)))
+            pcm = np.array(samples, dtype=np.int16)
+            sampwidth = 2
+        else:
+            # Already PCM
+            if sampwidth == 2:
+                pcm = np.frombuffer(raw_frames, dtype=np.int16)
+            else:
+                pcm = np.frombuffer(raw_frames, dtype=np.int8).astype(np.int16) * 256
 
-        # Step 2: Convert to mono if stereo
+        # Step 2: Stereo to mono
         if channels == 2:
-            raw_frames = audioop.tomono(raw_frames, sampwidth, 1)
-            channels   = 1
+            pcm = pcm.reshape(-1, 2).mean(axis=1).astype(np.int16)
+            channels = 1
 
-        # Step 3: Resample to 16kHz
+        # Step 3: Resample to 16000Hz using linear interpolation
         if framerate != 16000:
-            raw_frames, _ = audioop.ratecv(
-                raw_frames, sampwidth, channels,
-                framerate, 16000, None
-            )
-            framerate = 16000
+            original_len = len(pcm)
+            target_len   = int(original_len * 16000 / framerate)
+            x_old = np.linspace(0, 1, original_len)
+            x_new = np.linspace(0, 1, target_len)
+            pcm   = np.interp(x_new, x_old, pcm).astype(np.int16)
 
-        # Write back as WAV
+        # Write output WAV
         out_buf = io.BytesIO()
         with wave.open(out_buf, 'wb') as wav_out:
-            wav_out.setnchannels(channels)
-            wav_out.setsampwidth(sampwidth)
-            wav_out.setframerate(framerate)
-            wav_out.writeframes(raw_frames)
+            wav_out.setnchannels(1)
+            wav_out.setsampwidth(2)
+            wav_out.setframerate(16000)
+            wav_out.writeframes(pcm.tobytes())
 
         result = out_buf.getvalue()
         print(f"[STT] Converted to 16kHz PCM, size: {len(result)} bytes")
@@ -60,7 +78,6 @@ def convert_twilio_wav_to_16k(audio_bytes: bytes) -> bytes:
 
 async def transcribe_audio(audio_bytes: bytes, language: str = "hi-IN") -> str:
     try:
-        # Convert audio to 16kHz PCM first
         converted = convert_twilio_wav_to_16k(audio_bytes)
 
         files = {
@@ -81,7 +98,7 @@ async def transcribe_audio(audio_bytes: bytes, language: str = "hi-IN") -> str:
                 headers=headers,
             )
             print(f"[STT] Status: {response.status_code}")
-            print(f"[STT] Response body: {response.text}")
+            print(f"[STT] Response: {response.text}")
             response.raise_for_status()
             result = response.json()
             return result.get("transcript", "")
@@ -89,3 +106,8 @@ async def transcribe_audio(audio_bytes: bytes, language: str = "hi-IN") -> str:
     except Exception as e:
         print(f"[STT] Error: {e}")
         return ""
+```
+
+Now add `numpy` to `backend/requirements.txt`:
+```
+numpy==1.26.4
