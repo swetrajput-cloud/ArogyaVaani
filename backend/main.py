@@ -4,39 +4,47 @@ import sys, os, csv
 from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from routers.inbound import router as inbound_router
-from routers.outbound import router as outbound_router
+
 from config import settings
 from models.database import create_tables, SessionLocal
 from models.patient import Patient
-from call_engine.twiml_router import router as twilio_router
+from models.vaccination import VaccinationSchedule
+
+# ─── Routers ──────────────────────────────────────────────────────────────────
+from routers.inbound import router as inbound_router
+from routers.outbound import router as outbound_router
 from routers.patients import router as patients_router
 from routers.stats import router as stats_router
 from routers.simulate import router as simulate_router
 from routers.calls import router as calls_router
+from routers.vaccination import router as vaccination_router
+
+# ─── WebSocket / Media Stream ─────────────────────────────────────────────────
 from dashboard.ws_broadcaster import connect_client, disconnect_client
 from call_engine.media_stream import handle_media_stream
 
+# ─── App Init ─────────────────────────────────────────────────────────────────
 app = FastAPI(title=settings.APP_NAME)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["*"],  # Allows Vercel frontend + local dev
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(twilio_router)
+# ─── Include Routers ──────────────────────────────────────────────────────────
+# NOTE: twilio_router removed — project uses Exotel now
+app.include_router(inbound_router)
+app.include_router(outbound_router)
 app.include_router(patients_router)
 app.include_router(stats_router)
 app.include_router(simulate_router)
 app.include_router(calls_router)
-app.include_router(inbound_router)
-app.include_router(outbound_router)
+app.include_router(vaccination_router)
 
 # ─── WebSocket: Live Dashboard ────────────────────────────────────────────────
-
 @app.websocket("/ws/dashboard")
 async def dashboard_ws(websocket: WebSocket):
     await connect_client(websocket)
@@ -46,16 +54,12 @@ async def dashboard_ws(websocket: WebSocket):
     except WebSocketDisconnect:
         disconnect_client(websocket)
 
-# ─── WebSocket: Twilio Media Stream ──────────────────────────────────────────
-
+# ─── WebSocket: Exotel Media Stream ──────────────────────────────────────────
 @app.websocket("/ws/stream/{call_sid}")
 async def media_stream_ws(websocket: WebSocket, call_sid: str):
     await handle_media_stream(websocket, call_sid)
 
-# ─── CSV Seeding ──────────────────────────────────────────────────────────────
-
-CSV_PATH = os.path.join(os.path.dirname(__file__), "data", "patients.csv")
-
+# ─── Helper Functions ─────────────────────────────────────────────────────────
 def safe_float(val):
     try:
         return float(val)
@@ -68,7 +72,10 @@ def safe_str(val):
 
 def map_risk_tier(overall_risk_category: str) -> str:
     mapping = {"Low": "GREEN", "Moderate": "AMBER", "High": "RED"}
-    return mapping.get(overall_risk_category.strip(), "GREEN")
+    try:
+        return mapping.get(overall_risk_category.strip(), "GREEN")
+    except:
+        return "GREEN"
 
 def derive_module(row: dict) -> str:
     camp = row.get("health_camp_name", "").lower()
@@ -88,16 +95,21 @@ def derive_condition(row: dict) -> str:
         parts.append("Hypertension")
     return ", ".join(parts) if parts else "General Monitoring"
 
+# ─── CSV Paths ────────────────────────────────────────────────────────────────
+CSV_PATH = os.path.join(os.path.dirname(__file__), "data", "patients.csv")
+VAX_CSV_PATH = os.path.join(os.path.dirname(__file__), "data", "vaccination.csv")
+
+# ─── Seed: Patients ───────────────────────────────────────────────────────────
 def seed_patients_from_csv():
     if not os.path.exists(CSV_PATH):
-        print(f"[Seed] CSV not found at {CSV_PATH}, skipping.")
+        print(f"[Seed] patients.csv not found at {CSV_PATH}, skipping.")
         return
 
     db = SessionLocal()
     try:
         existing = db.query(Patient).count()
         if existing > 0:
-            print(f"[Seed] DB already has {existing} patients, skipping CSV seed.")
+            print(f"[Seed] DB already has {existing} patients, skipping.")
             return
 
         with open(CSV_PATH, newline='', encoding='utf-8') as f:
@@ -154,26 +166,70 @@ def seed_patients_from_csv():
         print(f"[Seed] ✅ Seeded {len(patients)} patients from CSV.")
     except Exception as e:
         db.rollback()
-        print(f"[Seed] ❌ CSV seed failed: {e}")
+        print(f"[Seed] ❌ Patient seed failed: {e}")
+    finally:
+        db.close()
+
+# ─── Seed: Vaccination Schedule ───────────────────────────────────────────────
+def seed_vaccination_schedule():
+    if not os.path.exists(VAX_CSV_PATH):
+        print(f"[Seed] vaccination.csv not found at {VAX_CSV_PATH}, skipping.")
+        return
+
+    db = SessionLocal()
+    try:
+        existing = db.query(VaccinationSchedule).count()
+        if existing > 0:
+            print(f"[Seed] Vaccination schedule already seeded ({existing} records), skipping.")
+            return
+
+        age_to_weeks = {
+            "Birth": 0,
+            "6 weeks": 6,
+            "10 weeks": 10,
+            "14 weeks": 14,
+            "9 months": 36,
+            "12 months": 52,
+        }
+
+        with open(VAX_CSV_PATH, newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            records = []
+            for row in reader:
+                age_label = row.get("Age", "").strip()
+                records.append(VaccinationSchedule(
+                    age_label=age_label,
+                    age_weeks=age_to_weeks.get(age_label),
+                    vaccine_name=row.get("Vaccine Name", "").strip(),
+                    dose=safe_str(row.get("Dose", "")),
+                    route_site=safe_str(row.get("Route/Site", "")),
+                    remarks=safe_str(row.get("Remarks", "")),
+                ))
+
+        db.bulk_save_objects(records)
+        db.commit()
+        print(f"[Seed] ✅ Seeded {len(records)} vaccination records.")
+    except Exception as e:
+        db.rollback()
+        print(f"[Seed] ❌ Vaccination seed failed: {e}")
     finally:
         db.close()
 
 # ─── Startup ──────────────────────────────────────────────────────────────────
-
 @app.on_event('startup')
 async def startup():
     create_tables()
     print("[Startup] Database tables created successfully")
     seed_patients_from_csv()
+    seed_vaccination_schedule()
 
 # ─── Root ─────────────────────────────────────────────────────────────────────
-
 @app.get('/')
 def root():
     return {
         "message": f"{settings.APP_NAME} backend is running",
         "debug": settings.DEBUG,
-        "docs": "http://localhost:8000/docs"
+        "docs": "/docs"
     }
 
 @app.get('/health')
