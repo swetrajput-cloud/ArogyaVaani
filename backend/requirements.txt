@@ -11,32 +11,3 @@ anthropic
 groq
 websockets
 alembic
-```
-
----
-
-**FILE 2 — `.gitignore`** (create in the root `arogya vaani new/` folder)
-```
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-venv/
-.env
-*.env
-
-# Node
-node_modules/
-dist/
-.next/
-
-# DB
-*.sqlite3
-
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
