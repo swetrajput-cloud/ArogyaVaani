@@ -3,9 +3,9 @@
   "languages": ["hindi", "english", "marathi", "tamil"],
   "categories": {
     "greeting": {
-      "hindi":   "नमस्ते {name} जी! आरोग्यवाणी से बोल रही हूँ। आपने {camp} में भाग लिया था। हमारे रिकॉर्ड के अनुसार आपको {condition} की समस्या है और आपका जोखिम स्तर {risk} है। कृपया बीप के बाद जो भी आप बताना चाहें, बताएं।",
+      "hindi":   "नमस्ते {name} जी! आरोग्यवाणी से बोल रही हूं। आपने {camp} में भाग लिया था। हमारे रिकॉर्ड के अनुसार आपको {condition} की समस्या है और आपका जोखिम स्तर {risk} है। कृपया बीप के बाद जो भी आप बताना चाहें, बताएं।",
       "english": "Hello {name}! This is ArogyaVaani calling. You had visited {camp}. Our records show you have {condition} and your risk level is {risk}. Please speak after the beep — tell us anything you want.",
-      "marathi": "नमस्कार {name}! आरोग्यवाणीतून बोलत आहे. तुम्ही {camp} मध्ये आला होतात. आमच्या नोंदीनुसार तुम्हाला {condition} आहे आणि तुमची जोखीम पातळी {risk} आहे. कृपया बीपनंतर बोला।",
+      "marathi": "नमस्कार {name}! आरोग्यवाणीतून बोलत आहे. तुम्ही {camp} मध्ये आला होता. आमच्या नोंदीनुसार तुम्हाला {condition} आहे आणि तुमची जोखीम पातळी {risk} आहे. कृपया बीपनंतर बोला।",
       "tamil":   "வணக்கம் {name}! ஆரோக்யவாணியிலிருந்து பேசுகிறேன். நீங்கள் {camp} வந்திருந்தீர்கள். எங்கள் பதிவின்படி உங்களுக்கு {condition} உள்ளது மற்றும் உங்கள் ஆபத்து நிலை {risk}. பீப்க்கு பிறகு பேசுங்கள்."
     },
     "closing": {
@@ -17,7 +17,7 @@
     "urgent_alert": {
       "hindi":   "यह बहुत जरूरी है। कृपया तुरंत डॉक्टर से मिलें।",
       "english": "This is urgent. Please see a doctor immediately.",
-      "marathi": "हे खूप महत्त्वाचे आहे. कृपया ताबडतोब डॉक्टरांना भेटा.",
+      "marathi": "हे खूप महत्त्वाचे आहे. कृपया ताबडतोब डॉक्टरांना भेटा।",
       "tamil":   "இது மிகவும் அவசரமானது. உடனே மருத்துவரை சந்தியுங்கள்."
     }
   },
@@ -32,11 +32,121 @@
       "id": "Q001",
       "category": "general",
       "conditions": ["all"],
-      "risk_levels": ["HIGH", "MODERATE", "LOW"],
+      "risk_levels": ["HIGH", "MODERATE", "LOW", "RED", "AMBER", "GREEN"],
       "hindi":   "बीप के बाद आप जो चाहें बताएं — कैसा महसूस कर रहे हैं, कोई तकलीफ है, या कुछ भी पूछना हो।",
       "english": "After the beep, please tell us anything — how you are feeling, any problems, or any questions you have.",
       "marathi": "बीपनंतर तुम्हाला काय सांगायचे ते सांगा — कसे वाटत आहे, काही तक्रार आहे का, किंवा काही विचारायचे असल्यास.",
-      "tamil":   "பீப்க்கு பிறகு நீங்கள் சொல்ல விரும்புவதை சொல்லுங்கள் — எப்படி உணர்கிறீர்கள், ஏதாவது பிரச்சனை உள்ளதா, அல்லது கேள்வி இருந்தால்."
+      "tamil":   "பீப்க்கு பிறகு நீங்கள் சொல்ல விரும்புவதை சொல்லுங்கள் — எப்படி உணர்கிறீர்கள், ஏதாவது பிரச்சனை உள்ளதா, அல்லது கேள்வி இருந்தாலும்."
+    },
+    {
+      "id": "Q002",
+      "category": "medication",
+      "conditions": ["all"],
+      "risk_levels": ["HIGH", "MODERATE", "RED", "AMBER"],
+      "hindi":   "क्या आप अपनी दवाइयां नियमित रूप से ले रहे हैं? कोई दवाई छूट तो नहीं गई?",
+      "english": "Are you taking your medicines regularly? Have you missed any doses recently?",
+      "marathi": "तुम्ही तुमच्या औषधे नियमितपणे घेत आहात का? कोणती औषधे चुकली आहेत का?",
+      "tamil":   "நீங்கள் உங்கள் மருந்துகளை தொடர்ந்து எடுத்துக்கொள்கிறீர்களா? ஏதாவது டோஸ் தவறவிட்டீர்களா?"
+    },
+    {
+      "id": "Q003",
+      "category": "pain",
+      "conditions": ["back_pain", "General Monitoring", "all"],
+      "risk_levels": ["HIGH", "MODERATE", "LOW", "RED", "AMBER", "GREEN"],
+      "hindi":   "दर्द कितना तेज है — हल्का है, मध्यम है, या बहुत ज्यादा है? कहां दर्द हो रहा है?",
+      "english": "How bad is the pain — mild, moderate, or severe? Where exactly is the pain?",
+      "marathi": "वेदना किती तीव्र आहे — सौम्य, मध्यम किंवा खूप जास्त? वेदना नक्की कुठे आहे?",
+      "tamil":   "வலி எவ்வளவு தீவிரமானது — லேசானது, மிதமானது அல்லது கடுமையானது? வலி சரியாக எங்கே உள்ளது?"
+    },
+    {
+      "id": "Q004",
+      "category": "vitals",
+      "conditions": ["Hypertension", "Heart Disease", "hypertension", "heart"],
+      "risk_levels": ["HIGH", "MODERATE", "RED", "AMBER"],
+      "hindi":   "क्या आपने आज बीपी चेक किया? बीपी कितना था? क्या चक्कर या सिरदर्द हो रहा है?",
+      "english": "Did you check your blood pressure today? What was the reading? Are you feeling dizzy or having headaches?",
+      "marathi": "आज तुम्ही रक्तदाब तपासला का? काय होते? चक्कर येत आहे किंवा डोकेदुखी आहे का?",
+      "tamil":   "இன்று உங்கள் இரத்த அழுத்தத்தை சோதித்தீர்களா? என்ன வந்தது? தலைசுற்றல் அல்லது தலைவலி உள்ளதா?"
+    },
+    {
+      "id": "Q005",
+      "category": "vitals",
+      "conditions": ["Diabetes", "diabetes"],
+      "risk_levels": ["HIGH", "MODERATE", "RED", "AMBER"],
+      "hindi":   "क्या आपने आज शुगर चेक की? कितनी थी? क्या ज्यादा प्यास लग रही है या कमजोरी महसूस हो रही है?",
+      "english": "Did you check your blood sugar today? What was the reading? Are you feeling very thirsty or weak?",
+      "marathi": "आज तुम्ही साखर तपासली का? काय होते? खूप तहान लागत आहे किंवा अशक्तपणा जाणवत आहे का?",
+      "tamil":   "இன்று உங்கள் இரத்த சர்க்கரையை சோதித்தீர்களா? என்ன வந்தது? மிகவும் தாகம் அல்லது பலவீனமாக உணர்கிறீர்களா?"
+    },
+    {
+      "id": "Q006",
+      "category": "diet",
+      "conditions": ["Diabetes", "Hypertension", "Heart Disease", "diabetes", "hypertension"],
+      "risk_levels": ["HIGH", "MODERATE", "LOW", "RED", "AMBER", "GREEN"],
+      "hindi":   "आज आपने क्या खाया? क्या आप नमक और मीठा कम खा रहे हैं? पानी पर्याप्त पी रहे हैं?",
+      "english": "What did you eat today? Are you reducing salt and sugar in your diet? Are you drinking enough water?",
+      "marathi": "आज तुम्ही काय खाल्ले? तुम्ही मीठ आणि साखर कमी करत आहात का? पुरेसे पाणी पित आहात का?",
+      "tamil":   "இன்று என்ன சாப்பிட்டீர்கள்? உப்பு மற்றும் சர்க்கரை குறைக்கிறீர்களா? போதுமான தண்ணீர் குடிக்கிறீர்களா?"
+    },
+    {
+      "id": "Q007",
+      "category": "symptoms",
+      "conditions": ["Heart Disease", "heart", "chest_pain", "breathlessness"],
+      "risk_levels": ["HIGH", "MODERATE", "RED", "AMBER"],
+      "hindi":   "क्या सीने में कोई दबाव या दर्द महसूस हो रहा है? सांस लेने में कोई तकलीफ है?",
+      "english": "Are you feeling any pressure or pain in your chest? Are you having any difficulty breathing?",
+      "marathi": "छातीत काही दाब किंवा वेदना जाणवत आहे का? श्वास घेण्यास काही त्रास होत आहे का?",
+      "tamil":   "மார்பில் ஏதாவது அழுத்தம் அல்லது வலி உணர்கிறீர்களா? சுவாசிக்க சிரமம் இருக்கிறதா?"
+    },
+    {
+      "id": "Q008",
+      "category": "mobility",
+      "conditions": ["back_pain", "General Monitoring", "all"],
+      "risk_levels": ["HIGH", "MODERATE", "LOW", "RED", "AMBER", "GREEN"],
+      "hindi":   "क्या आप रोज के काम जैसे चलना, उठना-बैठना ठीक से कर पा रहे हैं? कोई परेशानी है?",
+      "english": "Are you able to do daily activities like walking and moving around? Any difficulty?",
+      "marathi": "तुम्ही रोजची कामे जसे चालणे, उठणे-बसणे नीट करू शकत आहात का? काही अडचण आहे का?",
+      "tamil":   "நடைபயிற்சி மற்றும் அன்றாட செயல்களை சரியாக செய்ய முடிகிறதா? ஏதாவது சிரமம் உள்ளதா?"
+    },
+    {
+      "id": "Q009",
+      "category": "sleep",
+      "conditions": ["all"],
+      "risk_levels": ["HIGH", "MODERATE", "RED", "AMBER"],
+      "hindi":   "रात को नींद कैसी आ रही है? क्या रात को बार-बार जागना पड़ता है या नींद नहीं आती?",
+      "english": "How is your sleep at night? Are you waking up frequently or having trouble sleeping?",
+      "marathi": "रात्री झोप कशी येत आहे? वारंवार जाग येते का किंवा झोप येत नाही का?",
+      "tamil":   "இரவில் தூக்கம் எப்படி உள்ளது? அடிக்கடி விழிப்பு வருகிறதா அல்லது தூக்கம் வருவதில் சிரமம் உள்ளதா?"
+    },
+    {
+      "id": "Q010",
+      "category": "followup",
+      "conditions": ["all"],
+      "risk_levels": ["HIGH", "MODERATE", "RED", "AMBER"],
+      "hindi":   "क्या आप डॉक्टर से मिलना चाहते हैं? क्या अपॉइंटमेंट बुक करनी है?",
+      "english": "Would you like to see a doctor? Should we book an appointment for you?",
+      "marathi": "तुम्हाला डॉक्टरांना भेटायचे आहे का? तुमच्यासाठी अपॉइंटमेंट बुक करायची का?",
+      "tamil":   "நீங்கள் மருத்துவரை சந்திக்க விரும்புகிறீர்களா? உங்களுக்கு அப்பாயின்ட்மென்ட் புக் செய்யட்டுமா?"
+    },
+    {
+      "id": "Q011",
+      "category": "general",
+      "conditions": ["all"],
+      "risk_levels": ["LOW", "GREEN"],
+      "hindi":   "क्या आप आज खुश हैं और सब ठीक है? परिवार में सब स्वस्थ हैं?",
+      "english": "Are you feeling well today and is everything okay? Is your family doing well too?",
+      "marathi": "आज तुम्ही ठीक आहात का आणि सर्व काही ठीक आहे का? कुटुंबातील सर्वजण निरोगी आहेत का?",
+      "tamil":   "இன்று நீங்கள் நலமாக இருக்கிறீர்களா மற்றும் எல்லாம் சரியாக உள்ளதா? உங்கள் குடும்பத்தினர் நலமாக இருக்கிறார்களா?"
+    },
+    {
+      "id": "Q012",
+      "category": "exercise",
+      "conditions": ["all"],
+      "risk_levels": ["LOW", "GREEN", "MODERATE", "AMBER"],
+      "hindi":   "क्या आप रोज थोड़ी सैर या व्यायाम कर रहे हैं? कितनी देर करते हैं?",
+      "english": "Are you doing some walking or exercise daily? How long do you exercise each day?",
+      "marathi": "तुम्ही रोज थोडी चाल किंवा व्यायाम करत आहात का? किती वेळ करता?",
+      "tamil":   "தினமும் சிறிது நடை அல்லது உடற்பயிற்சி செய்கிறீர்களா? ஒவ்வொரு நாளும் எவ்வளவு நேரம் செய்கிறீர்கள்?"
     }
   ]
 }
