@@ -3,7 +3,6 @@ from functools import lru_cache
 from dotenv import load_dotenv
 import os
 
-# Load from backend/.env first, then fall back to root .env
 backend_env = os.path.join(os.path.dirname(__file__), ".env")
 root_env = os.path.join(os.path.dirname(__file__), "..", ".env")
 
@@ -27,6 +26,9 @@ class Settings(BaseSettings):
     TWILIO_ACCOUNT_SID: str = ""
     TWILIO_AUTH_TOKEN: str = ""
     TWILIO_PHONE_NUMBER: str = ""
+
+    # Doctor alert
+    DOCTOR_PHONE: str = ""  # e.g. +919876543210
 
     # AI / STT
     SARVAM_API_KEY: str = ""

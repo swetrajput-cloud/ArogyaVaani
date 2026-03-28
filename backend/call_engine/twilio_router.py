@@ -13,6 +13,7 @@ from nlp.risk_scorer import compute_risk
 from dashboard.ws_broadcaster import broadcast_update
 from models_ai.call_brain import build_call_script, is_urgent, get_urgent_alert
 from modules.vaccination_reminder_engine import mark_reminder_called
+from alerts.doctor_sms import send_doctor_alert
 from datetime import datetime
 import os
 
@@ -87,7 +88,8 @@ async def call_answered(
             "transcript_parts":   [],
             "script":             None,
             "overall_risk_score": patient.overall_risk_score or 0,
-            "record_saved":       False,  # guard against double-save
+            "record_saved":       False,
+            "patient_phone":      patient.phone or "",
         }
     finally:
         db.close()
@@ -209,7 +211,6 @@ async def record_answer(
 
     if transcript:
         state["transcript_parts"].append(transcript)
-        # Broadcast live to dashboard immediately after transcript received
         await broadcast_update({
             "call_sid":          call_sid,
             "patient_id":        state["patient_id"],
@@ -277,7 +278,6 @@ async def call_status(
 ):
     call_sid = CallSid or request.query_params.get("CallSid", "")
     print(f"[Twilio] Status: {call_sid} → {CallStatus} ({CallDuration}s)")
-    # Just clean up state — record was already saved in record_answer
     _call_states.pop(call_sid, None)
     return {"status": "ok"}
 
@@ -366,6 +366,18 @@ async def _save_call_record(
             "nlp":               nlp_output,
         })
         print(f"[Twilio] Saved. Patient:{state['patient_id']} Risk:{risk_tier}")
+
+        # Send doctor SMS alert if escalated or RED risk
+        if escalate or risk_tier.upper() == "RED":
+            send_doctor_alert(
+                patient_name=state.get("patient_name", "Unknown"),
+                patient_phone=state.get("patient_phone", "Unknown"),
+                condition=state.get("condition", ""),
+                risk_tier=risk_tier,
+                transcript=full_transcript,
+                escalation_reason=reason,
+            )
+
     except Exception as e:
         db.rollback()
         print(f"[Twilio] DB error: {e}")
