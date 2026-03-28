@@ -17,11 +17,18 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     SECRET_KEY: str = "aarogyavaani_secret_key_2024"
 
+    # Exotel (kept for reference)
     EXOTEL_API_KEY: str = ""
     EXOTEL_API_TOKEN: str = ""
     EXOTEL_ACCOUNT_SID: str = ""
     EXOTEL_PHONE_NUMBER: str = ""
 
+    # Twilio
+    TWILIO_ACCOUNT_SID: str = ""
+    TWILIO_AUTH_TOKEN: str = ""
+    TWILIO_PHONE_NUMBER: str = ""
+
+    # AI / STT
     SARVAM_API_KEY: str = ""
     GROQ_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""

@@ -1,73 +1,54 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from sqlalchemy.orm import Session
+import os
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from models.database import SessionLocal
 from models.patient import Patient
-from services.call_conductor import conduct_call, conduct_bulk_calls
+from services.twilio_service import make_call
 from config import settings
-import os
 
 router = APIRouter(prefix="/outbound", tags=["outbound"])
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+BASE_URL = os.getenv("BASE_URL", "https://arogyavaani-production.up.railway.app")
 
 class CallRequest(BaseModel):
     patient_id: int
 
-class BulkCallRequest(BaseModel):
-    risk_tiers: list = ["RED", "AMBER"]
-    limit: int = 10
-    delay_seconds: int = 5
-
 @router.post("/call")
-async def outbound_call(req: CallRequest, db: Session = Depends(get_db)):
-    """Trigger an outbound call to a single patient via Exotel."""
-    patient = db.query(Patient).filter(Patient.id == req.patient_id).first()
-    if not patient:
-        raise HTTPException(status_code=404, detail="Patient not found")
+async def trigger_call(req: CallRequest):
+    db = SessionLocal()
+    try:
+        patient = db.query(Patient).filter(Patient.id == req.patient_id).first()
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
 
-    result = await conduct_call(req.patient_id)
-    return result
-
-@router.post("/bulk-call")
-async def bulk_call(req: BulkCallRequest, background_tasks: BackgroundTasks):
-    """Trigger outbound calls for multiple patients in background."""
-    background_tasks.add_task(
-        conduct_bulk_calls,
-        risk_tiers=req.risk_tiers,
-        limit=req.limit,
-        delay_seconds=req.delay_seconds,
-    )
-    return {
-        "status": "bulk calls started in background",
-        "risk_tiers": req.risk_tiers,
-        "limit": req.limit,
-    }
+        result = make_call(
+            to_number           = patient.phone,
+            callback_url        = f"{BASE_URL}/twilio/answered",
+            status_callback_url = f"{BASE_URL}/twilio/status",
+        )
+        return {
+            "status":          "call initiated",
+            "patient":         patient.name,
+            "phone":           patient.phone,
+            "risk_tier":       patient.current_risk_tier,
+            "twilio_response": result,
+        }
+    finally:
+        db.close()
 
 @router.get("/preview/{patient_id}")
-async def preview_call_script(patient_id: int):
-    """Preview the call script for a patient without making the call."""
-    from services.patient_selector import get_patient_call_profile
+async def preview_script(patient_id: int):
     from models_ai.call_brain import build_call_script
+    from services.patient_selector import get_patient_call_profile
 
     profile = get_patient_call_profile(patient_id)
     if not profile:
         raise HTTPException(status_code=404, detail="Patient not found")
 
     script = build_call_script(
-        patient_name=profile["name"],
-        condition=profile["condition"],
-        risk_level=profile["risk_tier"],
-        language=profile["language"],
-        max_questions=5
+        patient_name  = profile["name"],
+        condition     = profile["condition"],
+        risk_level    = profile["risk_tier"],
+        language      = profile["language"],
+        max_questions = 5,
     )
-
-    return {
-        "patient": profile,
-        "script": script,
-    }
+    return {"patient": profile, "script": script}

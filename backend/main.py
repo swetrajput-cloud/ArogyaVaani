@@ -18,6 +18,7 @@ from routers.stats import router as stats_router
 from routers.simulate import router as simulate_router
 from routers.calls import router as calls_router
 from routers.vaccination import router as vaccination_router
+from call_engine.twilio_router import router as twilio_router  # NEW
 
 # ─── WebSocket / Media Stream ─────────────────────────────────────────────────
 from dashboard.ws_broadcaster import connect_client, disconnect_client
@@ -28,14 +29,13 @@ app = FastAPI(title=settings.APP_NAME)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows Vercel frontend + local dev
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # ─── Include Routers ──────────────────────────────────────────────────────────
-# NOTE: twilio_router removed — project uses Exotel now
 app.include_router(inbound_router)
 app.include_router(outbound_router)
 app.include_router(patients_router)
@@ -43,6 +43,7 @@ app.include_router(stats_router)
 app.include_router(simulate_router)
 app.include_router(calls_router)
 app.include_router(vaccination_router)
+app.include_router(twilio_router)  # NEW
 
 # ─── WebSocket: Live Dashboard ────────────────────────────────────────────────
 @app.websocket("/ws/dashboard")
@@ -54,7 +55,7 @@ async def dashboard_ws(websocket: WebSocket):
     except WebSocketDisconnect:
         disconnect_client(websocket)
 
-# ─── WebSocket: Exotel Media Stream ──────────────────────────────────────────
+# ─── WebSocket: Media Stream ──────────────────────────────────────────────────
 @app.websocket("/ws/stream/{call_sid}")
 async def media_stream_ws(websocket: WebSocket, call_sid: str):
     await handle_media_stream(websocket, call_sid)
@@ -184,12 +185,8 @@ def seed_vaccination_schedule():
             return
 
         age_to_weeks = {
-            "Birth": 0,
-            "6 weeks": 6,
-            "10 weeks": 10,
-            "14 weeks": 14,
-            "9 months": 36,
-            "12 months": 52,
+            "Birth": 0, "6 weeks": 6, "10 weeks": 10,
+            "14 weeks": 14, "9 months": 36, "12 months": 52,
         }
 
         with open(VAX_CSV_PATH, newline='', encoding='utf-8') as f:
