@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getPatient, initiateCall } from '../api/client'
 import RiskBadge from '../components/RiskBadge'
-import { ArrowLeft, Phone, Heart, Clock, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Phone, Heart, Clock, AlertTriangle, TrendingUp } from 'lucide-react'
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -22,6 +22,90 @@ function RiskPill({ tier }) {
   )
 }
 
+function RiskTrendChart({ calls }) {
+  if (!calls || calls.length === 0) return null
+
+  const sorted = [...calls].reverse()
+  const riskToNum = { GREEN: 1, AMBER: 2, RED: 3 }
+  const numToLabel = { 1: 'Low', 2: 'Moderate', 3: 'High' }
+  const numToColor = { 1: '#22c55e', 2: '#f59e0b', 3: '#ef4444' }
+
+  const points = sorted.map((c, i) => ({
+    x: i,
+    y: riskToNum[c.risk_tier] || 1,
+    label: new Date(c.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+    tier: c.risk_tier,
+  }))
+
+  const W = 500
+  const H = 120
+  const PAD = { top: 16, bottom: 32, left: 40, right: 16 }
+  const chartW = W - PAD.left - PAD.right
+  const chartH = H - PAD.top - PAD.bottom
+
+  const xStep = points.length > 1 ? chartW / (points.length - 1) : chartW / 2
+  const yScale = (val) => chartH - ((val - 1) / 2) * chartH
+
+  const toXY = (p, i) => ({
+    cx: PAD.left + (points.length > 1 ? i * xStep : chartW / 2),
+    cy: PAD.top + yScale(p.y),
+  })
+
+  const coords = points.map((p, i) => toXY(p, i))
+  const pathD = coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.cx} ${c.cy}`).join(' ')
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+      <h2 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+        <TrendingUp size={16} className="text-blue-500" /> Risk Trend
+      </h2>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 140 }}>
+        {/* Grid lines */}
+        {[1, 2, 3].map(v => (
+          <g key={v}>
+            <line
+              x1={PAD.left} y1={PAD.top + yScale(v)}
+              x2={W - PAD.right} y2={PAD.top + yScale(v)}
+              stroke="#f3f4f6" strokeWidth="1"
+            />
+            <text x={PAD.left - 6} y={PAD.top + yScale(v) + 4}
+              textAnchor="end" fontSize="9" fill="#9ca3af">
+              {numToLabel[v]}
+            </text>
+          </g>
+        ))}
+
+        {/* Line */}
+        {points.length > 1 && (
+          <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinejoin="round" />
+        )}
+
+        {/* Dots */}
+        {coords.map((c, i) => (
+          <g key={i}>
+            <circle cx={c.cx} cy={c.cy} r="5"
+              fill={numToColor[points[i].y]} stroke="white" strokeWidth="2" />
+            <text x={c.cx} y={H - 6}
+              textAnchor="middle" fontSize="9" fill="#9ca3af">
+              {points[i].label}
+            </text>
+          </g>
+        ))}
+      </svg>
+
+      {/* Legend */}
+      <div className="flex gap-4 mt-1 justify-center">
+        {[['#22c55e', 'Low'], ['#f59e0b', 'Moderate'], ['#ef4444', 'High']].map(([color, label]) => (
+          <div key={label} className="flex items-center gap-1.5 text-xs text-gray-500">
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
+            {label}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function PatientDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -29,6 +113,8 @@ export default function PatientDetail() {
   const [calls, setCalls] = useState([])
   const [selectedCall, setSelectedCall] = useState(null)
   const [callsLoading, setCallsLoading] = useState(true)
+  const [calling, setCalling] = useState(false)
+  const [callStatus, setCallStatus] = useState('')
 
   useEffect(() => {
     getPatient(id).then((r) => setPatient(r.data)).catch(console.error)
@@ -49,11 +135,16 @@ export default function PatientDetail() {
   }
 
   const handleCall = async () => {
+    setCalling(true)
+    setCallStatus('')
     try {
       await initiateCall(id)
-      alert('Call initiated!')
+      setCallStatus('success')
     } catch {
-      alert('Call failed — check Twilio credentials')
+      setCallStatus('error')
+    } finally {
+      setCalling(false)
+      setTimeout(() => setCallStatus(''), 3000)
     }
   }
 
@@ -88,38 +179,70 @@ export default function PatientDetail() {
 
   if (!patient) return <div className="text-center py-20 text-gray-400">Loading...</div>
 
+  const redCalls   = calls.filter(c => c.risk_tier === 'RED').length
+  const amberCalls = calls.filter(c => c.risk_tier === 'AMBER').length
+  const escalated  = calls.filter(c => c.escalate_flag).length
+
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4">
         <button onClick={() => navigate('/')} className="text-gray-400 hover:text-gray-700">
           <ArrowLeft size={20} />
         </button>
         <div className="flex-1">
           <h1 className="font-bold text-gray-800">{patient.name}</h1>
-          <p className="text-xs text-gray-400">{patient.health_camp_name}</p>
+          <p className="text-xs text-gray-400">{patient.health_camp_name} · {patient.phone}</p>
         </div>
         <RiskBadge tier={patient.current_risk_tier} />
         <button
           onClick={() => navigate(`/simulator?patient_id=${id}`)}
           className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700 transition"
         >
-          🎯 Simulate Call
+          🎯 Simulate
         </button>
         <button
           onClick={handleCall}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
+          disabled={calling}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition
+            ${calling ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              : callStatus === 'success' ? 'bg-green-500 text-white'
+              : callStatus === 'error' ? 'bg-red-500 text-white'
+              : 'bg-blue-600 text-white hover:bg-blue-700'}`}
         >
-          <Phone size={14} /> Call Patient
+          <Phone size={14} />
+          {calling ? 'Calling...' : callStatus === 'success' ? '✅ Called' : callStatus === 'error' ? '❌ Failed' : 'Call Patient'}
         </button>
       </div>
 
       <div className="max-w-4xl mx-auto px-6 py-6 space-y-6">
+
+        {/* Quick stats */}
+        <div className="grid grid-cols-4 gap-3">
+          {[
+            { label: 'Total Calls',  value: calls.length,  color: 'text-blue-600' },
+            { label: 'High Risk',    value: redCalls,       color: 'text-red-600' },
+            { label: 'Moderate',     value: amberCalls,     color: 'text-yellow-600' },
+            { label: 'Escalated',    value: escalated,      color: 'text-purple-600' },
+          ].map(s => (
+            <div key={s.label} className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 text-center">
+              <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+              <p className="text-xs text-gray-400 mt-1">{s.label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Risk trend chart */}
+        <RiskTrendChart calls={calls} />
+
+        {/* Condition */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
           <h2 className="font-semibold text-gray-700 mb-1">Condition</h2>
           <p className="text-gray-600">{patient.condition}</p>
           <p className="text-xs text-gray-400 mt-1">Module: {patient.module_type} | Language: {patient.language}</p>
         </div>
 
+        {/* Vitals */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
           <h2 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
             <Heart size={16} className="text-red-500" /> Vitals
@@ -136,6 +259,7 @@ export default function PatientDetail() {
           </div>
         </div>
 
+        {/* Risk Assessment */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
           <h2 className="font-semibold text-gray-700 mb-3">Risk Assessment</h2>
           <RiskRow label="Heart Risk"        level={patient.heart_risk_level}        score={patient.heart_risk_total_score} />
@@ -147,6 +271,7 @@ export default function PatientDetail() {
           </div>
         </div>
 
+        {/* Symptoms + Lifestyle */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
             <h2 className="font-semibold text-gray-700 mb-3">Symptoms</h2>
@@ -183,6 +308,7 @@ export default function PatientDetail() {
           </div>
         </div>
 
+        {/* Call History */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
           <h2 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
             <Clock size={16} className="text-blue-500" /> Call History
