@@ -43,7 +43,7 @@ async def call_answered(
     call_sid = CallSid or request.query_params.get("CallSid", "")
     print(f"[Twilio] Call answered: {call_sid} From:{From} To:{To}")
 
-    patient_phone = To  # outbound: To = patient number
+    patient_phone = To
 
     db = SessionLocal()
     try:
@@ -80,15 +80,24 @@ async def call_answered(
         num_digits=1,
         action=f"{BASE_URL}/twilio/language-select?call_sid={call_sid}",
         method="POST",
-        timeout=10,
+        timeout=15,        # increased from 10 to 15
+        finishOnKey="",    # don't stop on any key, wait for num_digits
     )
     gather.say(
         "नमस्ते! आरोग्यवाणी से आपका स्वागत है। "
         "हिंदी के लिए 1 दबाएं। "
-        "English के लिए 3 दबाएं।",
-        language="hi-IN"
+        "English के लिए 3 दबाएं। "
+        "कृपया अभी कोई बटन दबाएं।",
+        language="hi-IN",
+        voice="Polly.Aditi",
     )
     response.append(gather)
+
+    # If no key pressed, default to Hindi automatically
+    response.redirect(
+        f"{BASE_URL}/twilio/language-select?call_sid={call_sid}&default=hindi",
+        method="POST"
+    )
     return Response(content=str(response), media_type="application/xml")
 
 
@@ -99,6 +108,7 @@ async def language_select(
     Digits: str = Form(default=""),
 ):
     call_sid = CallSid or request.query_params.get("call_sid", "")
+    default_lang = request.query_params.get("default", "")
     state = _call_states.get(call_sid)
 
     if not state:
@@ -107,9 +117,15 @@ async def language_select(
         response.hangup()
         return Response(content=str(response), media_type="application/xml")
 
-    lang_map = {"1": "hindi", "2": "marathi", "3": "english"}
-    language = lang_map.get(Digits, "hindi")
+    # If redirected with no keypress, default to Hindi
+    if default_lang == "hindi" and not Digits:
+        language = "hindi"
+    else:
+        lang_map = {"1": "hindi", "2": "marathi", "3": "english"}
+        language = lang_map.get(Digits, "hindi")
+
     state["language"] = language
+    print(f"[Twilio] Language selected: {language} (digits={Digits})")
 
     script = build_call_script(
         patient_name=state["patient_name"],
@@ -122,12 +138,14 @@ async def language_select(
     state["question_index"] = 0
 
     twiml_lang = "en-IN" if language == "english" else "hi-IN"
+    voice = "Polly.Raveena" if language == "hindi" else "Polly.Aditi"
     greeting = script["greeting"]
     first_q = script["questions"][0]["text"] if script["questions"] else script["closing"]
 
     response = VoiceResponse()
-    response.say(greeting, language=twiml_lang)
-    response.say(first_q, language=twiml_lang)
+    response.say(greeting, language=twiml_lang, voice=voice)
+    response.pause(length=1)
+    response.say(first_q, language=twiml_lang, voice=voice)
     response.record(
         action=f"{BASE_URL}/twilio/record-answer?call_sid={call_sid}&q_index=0",
         method="POST",
@@ -135,6 +153,7 @@ async def language_select(
         finish_on_key="#",
         play_beep=True,
         transcribe=False,
+        timeout=5,
     )
     return Response(content=str(response), media_type="application/xml")
 
@@ -158,13 +177,14 @@ async def record_answer(
     language = state["language"]
     script = state["script"]
     twiml_lang = "en-IN" if language == "english" else "hi-IN"
+    voice = "Polly.Raveena" if language == "hindi" else "Polly.Aditi"
     transcript = ""
 
     if RecordingUrl:
         try:
             from sarvam.stt import transcribe_audio
 
-            await asyncio.sleep(3)  # wait for Twilio to finish uploading recording
+            await asyncio.sleep(3)
 
             auth = (settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
             async with httpx.AsyncClient(timeout=30) as client:
@@ -174,9 +194,8 @@ async def record_answer(
                 )
                 audio_bytes = audio_resp.content
                 print(f"[Twilio] Recording size: {len(audio_bytes)} bytes")
-                print(f"[Twilio] Recording status: {audio_resp.status_code}")
 
-            if len(audio_bytes) > 1000:  # only transcribe if we got real audio
+            if len(audio_bytes) > 1000:
                 transcript = await transcribe_audio(
                     audio_bytes, language=_lang_code(language)
                 )
@@ -194,7 +213,7 @@ async def record_answer(
         urgent_msg = get_urgent_alert(language)
         await _save_call_record(call_sid, state, "RED", True, "Urgent keyword detected")
         response = VoiceResponse()
-        response.say(urgent_msg, language=twiml_lang)
+        response.say(urgent_msg, language=twiml_lang, voice=voice)
         response.hangup()
         return Response(content=str(response), media_type="application/xml")
 
@@ -218,7 +237,7 @@ async def record_answer(
 
     if next_index < len(script["questions"]):
         next_q = script["questions"][next_index]["text"]
-        response.say(next_q, language=twiml_lang)
+        response.say(next_q, language=twiml_lang, voice=voice)
         response.record(
             action=f"{BASE_URL}/twilio/record-answer?call_sid={call_sid}&q_index={next_index}",
             method="POST",
@@ -226,10 +245,11 @@ async def record_answer(
             finish_on_key="#",
             play_beep=True,
             transcribe=False,
+            timeout=5,
         )
     else:
         await _save_call_record(call_sid, state, risk_tier, escalate, reason, nlp_output)
-        response.say(script["closing"], language=twiml_lang)
+        response.say(script["closing"], language=twiml_lang, voice=voice)
         response.hangup()
 
     return Response(content=str(response), media_type="application/xml")
