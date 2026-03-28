@@ -18,8 +18,8 @@ def make_call(
     )
 
     return {
-        "sid": call.sid,
-        "status": call.status,
-        "to": call.to,
-        "from": call.from_,
-    }
+    "sid": call.sid,
+    "status": call.status,
+    "to": call.to,
+    "from": str(settings.TWILIO_PHONE_NUMBER),   # ✅ use settings directly
+}
