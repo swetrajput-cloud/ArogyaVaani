@@ -2,7 +2,7 @@ import httpx
 import base64
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import Response
-from twilio.twiml.voice_response import VoiceResponse, Gather, Record
+from twilio.twiml.voice_response import VoiceResponse, Gather
 from config import settings
 from models.database import SessionLocal
 from models.patient import Patient
@@ -32,8 +32,6 @@ def _lang_code(language: str) -> str:
     }.get(language.lower(), "hi-IN")
 
 
-# ── Endpoints ──────────────────────────────────────────────────────────────────
-
 @router.post("/answered")
 async def call_answered(
     request: Request,
@@ -41,15 +39,17 @@ async def call_answered(
     From: str = Form(default=""),
     To: str = Form(default=""),
 ):
-    """Twilio hits this when patient picks up."""
     call_sid = CallSid or request.query_params.get("CallSid", "")
     print(f"[Twilio] Call answered: {call_sid} From:{From} To:{To}")
 
+    # FIX: outbound call → From=Twilio number, To=patient number
+    patient_phone = To
+
     db = SessionLocal()
     try:
-        patient = db.query(Patient).filter(Patient.phone == From).first()
+        patient = db.query(Patient).filter(Patient.phone == patient_phone).first()
         if not patient:
-            clean = From.lstrip("+").lstrip("91")
+            clean = patient_phone.lstrip("+").lstrip("91")
             patient = db.query(Patient).filter(
                 Patient.phone.contains(clean[-10:])
             ).first()
@@ -127,6 +127,7 @@ async def language_select(
 
     response = VoiceResponse()
     response.say(greeting, language=twiml_lang)
+    response.say(first_q, language=twiml_lang)
     response.record(
         action=f"{BASE_URL}/twilio/record-answer?call_sid={call_sid}&q_index=0",
         method="POST",
@@ -135,7 +136,6 @@ async def language_select(
         play_beep=True,
         transcribe=False,
     )
-    response.say(first_q, language=twiml_lang)
     return Response(content=str(response), media_type="application/xml")
 
 
@@ -160,7 +160,6 @@ async def record_answer(
     twiml_lang = "en-IN" if language == "english" else "hi-IN"
     transcript = ""
 
-    # Download recording with Twilio auth
     if RecordingUrl:
         try:
             from sarvam.stt import transcribe_audio
@@ -181,7 +180,6 @@ async def record_answer(
     if transcript:
         state["transcript_parts"].append(transcript)
 
-    # Urgent keyword check
     if transcript and is_urgent(transcript, language):
         urgent_msg = get_urgent_alert(language)
         await _save_call_record(call_sid, state, "RED", True, "Urgent keyword detected")
@@ -190,7 +188,6 @@ async def record_answer(
         response.hangup()
         return Response(content=str(response), media_type="application/xml")
 
-    # NLP + risk scoring
     nlp_output = {}
     risk_tier = "GREEN"
     escalate = False
@@ -247,8 +244,6 @@ async def call_status(
         _call_states.pop(call_sid, None)
     return {"status": "ok"}
 
-
-# ── DB helper ──────────────────────────────────────────────────────────────────
 
 async def _save_call_record(
     call_sid, state, risk_tier, escalate, reason,
