@@ -2,6 +2,7 @@ import httpx
 import io
 import wave
 import numpy as np
+import asyncio
 from config import settings
 
 SARVAM_STT_URL = "https://api.sarvam.ai/speech-to-text"
@@ -15,7 +16,7 @@ def convert_twilio_wav_to_16k(audio_bytes: bytes) -> bytes:
             framerate  = wav_in.getframerate()
             raw_frames = wav_in.readframes(wav_in.getnframes())
 
-        print(f"[STT] Input: {framerate}Hz, {channels}ch, {sampwidth}byte")
+        print(f"[STT] Input: {framerate}Hz, {channels}ch, {sampwidth}byte, {len(raw_frames)} raw bytes")
 
         if framerate == 16000 and sampwidth == 2 and channels == 1:
             return audio_bytes
@@ -33,7 +34,6 @@ def convert_twilio_wav_to_16k(audio_bytes: bytes) -> bytes:
                     val = -val
                 samples.append(max(-32768, min(32767, val)))
             pcm = np.array(samples, dtype=np.int16)
-            sampwidth = 2
         else:
             if sampwidth == 2:
                 pcm = np.frombuffer(raw_frames, dtype=np.int16)
@@ -42,7 +42,6 @@ def convert_twilio_wav_to_16k(audio_bytes: bytes) -> bytes:
 
         if channels == 2:
             pcm = pcm.reshape(-1, 2).mean(axis=1).astype(np.int16)
-            channels = 1
 
         if framerate != 16000:
             original_len = len(pcm)
@@ -67,9 +66,55 @@ def convert_twilio_wav_to_16k(audio_bytes: bytes) -> bytes:
         return audio_bytes
 
 
-async def transcribe_audio(audio_bytes: bytes, language: str = "hi-IN") -> str:
+async def download_recording_with_retry(url: str, auth: tuple, max_attempts: int = 6) -> bytes:
+    """Retry downloading until file size stabilizes (recording is fully written)."""
+    prev_size = 0
+    audio_bytes = b""
+
+    for attempt in range(max_attempts):
+        wait = 3 + (attempt * 2)  # 3s, 5s, 7s, 9s, 11s, 13s
+        print(f"[STT] Waiting {wait}s before download attempt {attempt + 1}...")
+        await asyncio.sleep(wait)
+
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.get(f"{url}.wav", auth=auth)
+                audio_bytes = resp.content
+                size = len(audio_bytes)
+                print(f"[STT] Attempt {attempt + 1}: downloaded {size} bytes")
+
+                # If size is stable and > 10KB, recording is ready
+                if size > 10000 and size == prev_size:
+                    print(f"[STT] Size stable at {size} bytes — recording ready")
+                    return audio_bytes
+
+                # If we got a meaningfully large file and it grew, keep waiting
+                prev_size = size
+
+                # On last attempt, return whatever we have
+                if attempt == max_attempts - 1:
+                    print(f"[STT] Max attempts reached, using last download ({size} bytes)")
+                    return audio_bytes
+
+        except Exception as e:
+            print(f"[STT] Download attempt {attempt + 1} failed: {e}")
+
+    return audio_bytes
+
+
+async def transcribe_audio(audio_bytes: bytes, language: str = "hi-IN", recording_url: str = "") -> str:
     try:
         converted = convert_twilio_wav_to_16k(audio_bytes)
+
+        # Check if audio is mostly silence (all near-zero samples)
+        with wave.open(io.BytesIO(converted), 'rb') as w:
+            raw = w.readframes(w.getnframes())
+        pcm_check = np.frombuffer(raw, dtype=np.int16)
+        rms = np.sqrt(np.mean(pcm_check.astype(np.float32) ** 2))
+        print(f"[STT] Audio RMS (volume): {rms:.1f}")
+        if rms < 50:
+            print(f"[STT] Audio is silent (RMS {rms:.1f} < 50), skipping STT")
+            return ""
 
         files = {
             "file": ("audio.wav", io.BytesIO(converted), "audio/wav"),

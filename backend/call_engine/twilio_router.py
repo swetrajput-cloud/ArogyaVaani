@@ -80,8 +80,8 @@ async def call_answered(
         num_digits=1,
         action=f"{BASE_URL}/twilio/language-select?call_sid={call_sid}",
         method="POST",
-        timeout=15,        # increased from 10 to 15
-        finishOnKey="",    # don't stop on any key, wait for num_digits
+        timeout=15,
+        finishOnKey="",
     )
     gather.say(
         "नमस्ते! आरोग्यवाणी से आपका स्वागत है। "
@@ -93,7 +93,6 @@ async def call_answered(
     )
     response.append(gather)
 
-    # If no key pressed, default to Hindi automatically
     response.redirect(
         f"{BASE_URL}/twilio/language-select?call_sid={call_sid}&default=hindi",
         method="POST"
@@ -117,7 +116,6 @@ async def language_select(
         response.hangup()
         return Response(content=str(response), media_type="application/xml")
 
-    # If redirected with no keypress, default to Hindi
     if default_lang == "hindi" and not Digits:
         language = "hindi"
     else:
@@ -182,20 +180,14 @@ async def record_answer(
 
     if RecordingUrl:
         try:
-            from sarvam.stt import transcribe_audio
-
-            await asyncio.sleep(3)
+            from sarvam.stt import transcribe_audio, download_recording_with_retry
 
             auth = (settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-            async with httpx.AsyncClient(timeout=30) as client:
-                audio_resp = await client.get(
-                    f"{RecordingUrl}.wav",
-                    auth=auth
-                )
-                audio_bytes = audio_resp.content
-                print(f"[Twilio] Recording size: {len(audio_bytes)} bytes")
+            audio_bytes = await download_recording_with_retry(RecordingUrl, auth)
 
-            if len(audio_bytes) > 1000:
+            print(f"[Twilio] Final recording size: {len(audio_bytes)} bytes")
+
+            if len(audio_bytes) > 5000:
                 transcript = await transcribe_audio(
                     audio_bytes, language=_lang_code(language)
                 )
