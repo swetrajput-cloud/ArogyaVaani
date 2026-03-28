@@ -4,6 +4,7 @@ export default function useWebSocket() {
   const [messages, setMessages] = useState([])
   const [connected, setConnected] = useState(false)
   const ws = useRef(null)
+  const pingRef = useRef(null)
 
   useEffect(() => {
     const connect = () => {
@@ -11,21 +12,23 @@ export default function useWebSocket() {
 
       ws.current.onopen = () => {
         setConnected(true)
-        console.log('[WS] Connected to dashboard')
+        console.log('[WS] Connected')
+        pingRef.current = setInterval(() => {
+          if (ws.current?.readyState === WebSocket.OPEN) ws.current.send('ping')
+        }, 20000)
       }
 
       ws.current.onmessage = (event) => {
+        if (event.data === 'pong') return
         try {
           const data = JSON.parse(event.data)
           setMessages((prev) => [data, ...prev].slice(0, 50))
-        } catch (e) {
-          console.error('[WS] Parse error', e)
-        }
+        } catch (e) { console.error('[WS] Parse error', e) }
       }
 
       ws.current.onclose = () => {
         setConnected(false)
-        console.log('[WS] Disconnected, retrying in 3s...')
+        clearInterval(pingRef.current)
         setTimeout(connect, 3000)
       }
 
@@ -36,7 +39,7 @@ export default function useWebSocket() {
     }
 
     connect()
-    return () => ws.current?.close()
+    return () => { clearInterval(pingRef.current); ws.current?.close() }
   }, [])
 
   return { messages, connected }

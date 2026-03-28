@@ -55,10 +55,16 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-3">
           <button
+            onClick={() => navigate('/calls')}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
+          >
+            📋 Call History
+          </button>
+          <button
             onClick={() => navigate('/simulator')}
             className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700 transition"
           >
-            🎭 Call Simulator
+            🎯 Call Simulator
           </button>
           {connected
             ? <span className="flex items-center gap-1 text-xs text-green-600"><Wifi size={13} /> Live</span>
@@ -73,9 +79,9 @@ export default function Dashboard() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             {[
               { label: 'Total Patients', value: stats.total_patients, icon: <Users size={18} />, color: 'text-blue-600 bg-blue-50' },
-              { label: 'High Risk', value: stats.red, icon: <AlertTriangle size={18} />, color: 'text-red-600 bg-red-50' },
-              { label: 'Moderate', value: stats.amber, icon: <Activity size={18} />, color: 'text-yellow-600 bg-yellow-50' },
-              { label: 'Low Risk', value: stats.green, icon: <Activity size={18} />, color: 'text-green-600 bg-green-50' },
+              { label: 'High Risk',      value: stats.red,            icon: <AlertTriangle size={18} />, color: 'text-red-600 bg-red-50' },
+              { label: 'Moderate',       value: stats.amber,          icon: <Activity size={18} />, color: 'text-yellow-600 bg-yellow-50' },
+              { label: 'Low Risk',       value: stats.green,          icon: <Activity size={18} />, color: 'text-green-600 bg-green-50' },
             ].map((s) => (
               <div key={s.label} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-center gap-3">
                 <div className={`p-2 rounded-lg ${s.color}`}>{s.icon}</div>
@@ -91,7 +97,6 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left: Patient List */}
           <div className="lg:col-span-2">
-            {/* Filter */}
             <div className="flex gap-2 mb-4">
               {['', 'RED', 'AMBER', 'GREEN'].map((t) => (
                 <button
