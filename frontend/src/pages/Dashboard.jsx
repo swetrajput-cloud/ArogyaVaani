@@ -5,20 +5,33 @@ import PatientCard from '../components/PatientCard'
 import AdherenceChart from '../components/AdherenceChart'
 import EscalationQueue from '../components/EscalationQueue'
 import CallTranscript from '../components/CallTranscript'
+import AppointmentQueue from '../components/AppointmentQueue'
 import useWebSocket from '../hooks/useWebSocket'
 import { Users, AlertTriangle, Activity, Wifi, WifiOff } from 'lucide-react'
+
+const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 export default function Dashboard() {
   const [patients, setPatients] = useState([])
   const [stats, setStats] = useState(null)
   const [filter, setFilter] = useState('')
   const [loading, setLoading] = useState(true)
+  const [appointments, setAppointments] = useState([])
   const { messages, connected } = useWebSocket()
   const navigate = useNavigate()
 
   useEffect(() => {
     fetchData()
+    fetchAppointments()
   }, [filter])
+
+  // Refresh appointments when a new appointment WebSocket message arrives
+  useEffect(() => {
+    const latest = messages[0]
+    if (latest?.type === 'appointment') {
+      fetchAppointments()
+    }
+  }, [messages])
 
   const fetchData = async () => {
     setLoading(true)
@@ -33,6 +46,16 @@ export default function Dashboard() {
       console.error(e)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchAppointments = async () => {
+    try {
+      const res = await fetch(`${BASE}/appointments`)
+      const data = await res.json()
+      setAppointments(data.appointments || [])
+    } catch (e) {
+      console.error(e)
     }
   }
 
@@ -84,10 +107,10 @@ export default function Dashboard() {
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             {[
-              { label: 'Total Patients', value: stats.total_patients, icon: <Users size={18} />, color: 'text-blue-600 bg-blue-50' },
-              { label: 'High Risk',      value: stats.red,            icon: <AlertTriangle size={18} />, color: 'text-red-600 bg-red-50' },
-              { label: 'Moderate',       value: stats.amber,          icon: <Activity size={18} />, color: 'text-yellow-600 bg-yellow-50' },
-              { label: 'Low Risk',       value: stats.green,          icon: <Activity size={18} />, color: 'text-green-600 bg-green-50' },
+              { label: 'Total Patients', value: stats.total_patients, icon: <Users size={18} />,        color: 'text-blue-600 bg-blue-50'   },
+              { label: 'High Risk',      value: stats.red,            icon: <AlertTriangle size={18} />, color: 'text-red-600 bg-red-50'     },
+              { label: 'Moderate',       value: stats.amber,          icon: <Activity size={18} />,      color: 'text-yellow-600 bg-yellow-50'},
+              { label: 'Low Risk',       value: stats.green,          icon: <Activity size={18} />,      color: 'text-green-600 bg-green-50' },
             ].map((s) => (
               <div key={s.label} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-center gap-3">
                 <div className={`p-2 rounded-lg ${s.color}`}>{s.icon}</div>
@@ -133,6 +156,7 @@ export default function Dashboard() {
           {/* Right: Live Feed */}
           <div className="space-y-4">
             <AdherenceChart stats={stats} />
+            <AppointmentQueue appointments={appointments} onRefresh={fetchAppointments} />
             <EscalationQueue messages={messages} />
             <CallTranscript messages={messages} />
           </div>

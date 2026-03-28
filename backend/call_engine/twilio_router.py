@@ -7,13 +7,14 @@ from config import settings
 from models.database import SessionLocal
 from models.patient import Patient
 from models.call_record import CallRecord
+from models.appointment import Appointment
 from models.vaccination_reminder import VaccinationReminder
 from nlp.intent_extractor import extract_intent
 from nlp.risk_scorer import compute_risk
 from dashboard.ws_broadcaster import broadcast_update
 from models_ai.call_brain import build_call_script, is_urgent, get_urgent_alert
 from modules.vaccination_reminder_engine import mark_reminder_called
-from alerts.doctor_sms import send_doctor_alert
+from alerts.doctor_sms import send_doctor_alert, _send_whatsapp
 from datetime import datetime
 import os
 
@@ -189,6 +190,13 @@ async def record_answer(
         response.hangup()
         return Response(content=str(response), media_type="application/xml")
 
+    # Guard against Twilio double-firing the webhook
+    webhook_key = f"webhook_{call_sid}_{q_index}"
+    if state.get(webhook_key):
+        print(f"[Twilio] Duplicate webhook ignored for {call_sid} q{q_index}")
+        return Response(content="<Response/>", media_type="application/xml")
+    state[webhook_key] = True
+
     language = state["language"]
     script = state["script"]
     transcript = ""
@@ -225,7 +233,13 @@ async def record_answer(
 
     if transcript and is_urgent(transcript, language):
         urgent_msg = get_urgent_alert(language)
-        await _save_call_record(call_sid, state, "RED", True, "Urgent keyword detected")
+        # Still run NLP so we can detect appointment request even in urgent calls
+        urgent_nlp = {}
+        try:
+            urgent_nlp = await extract_intent(transcript, language)
+        except Exception as e:
+            print(f"[Twilio] NLP Error (urgent): {e}")
+        await _save_call_record(call_sid, state, "RED", True, "Urgent keyword detected", urgent_nlp)
         response = VoiceResponse()
         response.say(urgent_msg, language=_twiml_lang(language), voice=_voice(language))
         response.hangup()
@@ -323,7 +337,6 @@ async def _save_call_record(
     call_sid, state, risk_tier, escalate, reason,
     nlp_output=None, call_status="completed", duration=0
 ):
-    # Guard: only save once per call
     if state.get("record_saved"):
         print(f"[Twilio] Record already saved for {call_sid}, skipping duplicate save")
         return
@@ -367,7 +380,7 @@ async def _save_call_record(
         })
         print(f"[Twilio] Saved. Patient:{state['patient_id']} Risk:{risk_tier}")
 
-        # Send doctor SMS alert if escalated or RED risk
+        # Doctor WhatsApp alert on RED/escalated
         if escalate or risk_tier.upper() == "RED":
             send_doctor_alert(
                 patient_name=state.get("patient_name", "Unknown"),
@@ -377,6 +390,42 @@ async def _save_call_record(
                 transcript=full_transcript,
                 escalation_reason=reason,
             )
+
+        # Auto-create appointment if patient requested one
+        if nlp_output and nlp_output.get("wants_appointment"):
+            appt = Appointment(
+                patient_id = state["patient_id"],
+                call_sid   = call_sid,
+                reason     = nlp_output.get("structured_answer", {}).get(
+                    "patient_concern", "Patient requested appointment"
+                ),
+                status     = "pending",
+            )
+            db.add(appt)
+            db.commit()
+            print(f"[Appointment] Created for patient {state['patient_id']}")
+
+            # Notify doctor on WhatsApp about new appointment request
+            if settings.DOCTOR_PHONE:
+                _send_whatsapp(
+                    to_phone=settings.DOCTOR_PHONE,
+                    message=(
+                        f"📅 *नई अपॉइंटमेंट रिक्वेस्ट*\n"
+                        f"*Patient:* {state.get('patient_name', 'Unknown')}\n"
+                        f"*Phone:* {state.get('patient_phone', 'Unknown')}\n"
+                        f"*Condition:* {state.get('condition', '')}\n"
+                        f"*Reason:* {appt.reason}\n"
+                        f"Please confirm on the AarogyaVaani dashboard."
+                    )
+                )
+                print(f"[Appointment] Doctor WhatsApp sent for patient {state['patient_id']}")
+
+            await broadcast_update({
+                "type":         "appointment",
+                "patient_id":   state["patient_id"],
+                "patient_name": state.get("patient_name"),
+                "reason":       appt.reason,
+            })
 
     except Exception as e:
         db.rollback()

@@ -8,6 +8,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from config import settings
 from models.database import create_tables, SessionLocal
 from models.patient import Patient
+from models.appointment import Appointment
 from models.vaccination import VaccinationSchedule
 from models.vaccination_reminder import VaccinationReminder
 
@@ -21,6 +22,7 @@ from routers.calls import router as calls_router
 from routers.vaccination import router as vaccination_router
 from routers.vaccination_reminder import router as vaccination_reminder_router
 from call_engine.twilio_router import router as twilio_router
+from api.appointments import router as appointments_router
 
 # ─── WebSocket / Media Stream ─────────────────────────────────────────────────
 from dashboard.ws_broadcaster import connect_client, disconnect_client
@@ -47,6 +49,7 @@ app.include_router(calls_router)
 app.include_router(vaccination_router)
 app.include_router(vaccination_reminder_router)
 app.include_router(twilio_router)
+app.include_router(appointments_router)
 
 # ─── WebSocket: Live Dashboard ────────────────────────────────────────────────
 @app.websocket("/ws/dashboard")

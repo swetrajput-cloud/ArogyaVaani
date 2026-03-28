@@ -13,6 +13,7 @@ Always respond with ONLY valid JSON in this exact format:
   "sentiment": "positive|neutral|negative|distressed",
   "severity": 1,
   "keywords": ["list", "of", "clinical", "keywords"],
+  "wants_appointment": false,
   "structured_answer": {
     "pain_level": "none|mild|moderate|severe",
     "symptoms": ["list of symptoms mentioned"],
@@ -22,11 +23,22 @@ Always respond with ONLY valid JSON in this exact format:
   }
 }
 severity is 1-5 (1=mild, 5=critical).
+wants_appointment should be true if patient mentions booking, appointment, doctor visit, milna hai, book karo, bulao, dikha do, appointment chahiye, doctor se milna.
 No explanation, no markdown, only JSON."""
+
+APPOINTMENT_KEYWORDS = [
+    "अपॉइंटमेंट", "appointment", "बुक", "book", "डॉक्टर से मिलना",
+    "मिलना है", "बुलाओ", "दिखाना", "दिखाओ", "दिखा दो", "बुक कर",
+    "अपॉइन्टमेंट", "दिखाइए", "मिलना चाहता", "मिलना चाहती",
+    "book appointment", "see doctor", "meet doctor", "schedule",
+    "visit doctor", "need appointment", "appointment chahiye",
+]
 
 async def extract_intent(transcript: str, language: str = "hindi") -> dict:
     if not transcript or not transcript.strip():
         return _empty_intent()
+
+    raw = ""
     try:
         user_prompt = f"""Patient language: {language}
 Patient said: "{transcript}"
@@ -42,17 +54,31 @@ Extract clinical intent as JSON."""
         )
 
         raw = response.choices[0].message.content.strip()
-
-        # Extract JSON more robustly
         json_match = re.search(r'\{.*\}', raw, re.DOTALL)
         if json_match:
             raw = json_match.group()
 
-        return json.loads(raw)
+        result = json.loads(raw)
+
+        # Keyword fallback in case LLM misses it
+        if not result.get("wants_appointment"):
+            text_lower = transcript.lower()
+            result["wants_appointment"] = any(
+                kw.lower() in text_lower for kw in APPOINTMENT_KEYWORDS
+            )
+
+        return result
+
     except Exception as e:
         print(f"[NLP] Error: {e}")
         print(f"[NLP] Raw response: {raw}")
-        return _empty_intent()
+        text_lower = transcript.lower()
+        result = _empty_intent()
+        result["wants_appointment"] = any(
+            kw.lower() in text_lower for kw in APPOINTMENT_KEYWORDS
+        )
+        return result
+
 
 def _empty_intent() -> dict:
     return {
@@ -60,6 +86,7 @@ def _empty_intent() -> dict:
         "sentiment": "neutral",
         "severity": 1,
         "keywords": [],
+        "wants_appointment": False,
         "structured_answer": {
             "pain_level": "none",
             "symptoms": [],
