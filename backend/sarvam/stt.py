@@ -67,12 +67,11 @@ def convert_twilio_wav_to_16k(audio_bytes: bytes) -> bytes:
 
 
 async def download_recording_with_retry(url: str, auth: tuple, max_attempts: int = 6) -> bytes:
-    """Retry downloading until file size stabilizes (recording is fully written)."""
     prev_size = 0
     audio_bytes = b""
 
     for attempt in range(max_attempts):
-        wait = 3 + (attempt * 2)  # 3s, 5s, 7s, 9s, 11s, 13s
+        wait = 3 + (attempt * 2)
         print(f"[STT] Waiting {wait}s before download attempt {attempt + 1}...")
         await asyncio.sleep(wait)
 
@@ -83,15 +82,12 @@ async def download_recording_with_retry(url: str, auth: tuple, max_attempts: int
                 size = len(audio_bytes)
                 print(f"[STT] Attempt {attempt + 1}: downloaded {size} bytes")
 
-                # If size is stable and > 10KB, recording is ready
                 if size > 10000 and size == prev_size:
                     print(f"[STT] Size stable at {size} bytes — recording ready")
                     return audio_bytes
 
-                # If we got a meaningfully large file and it grew, keep waiting
                 prev_size = size
 
-                # On last attempt, return whatever we have
                 if attempt == max_attempts - 1:
                     print(f"[STT] Max attempts reached, using last download ({size} bytes)")
                     return audio_bytes
@@ -102,11 +98,10 @@ async def download_recording_with_retry(url: str, auth: tuple, max_attempts: int
     return audio_bytes
 
 
-async def transcribe_audio(audio_bytes: bytes, language: str = "hi-IN", recording_url: str = "") -> str:
+async def transcribe_audio(audio_bytes: bytes, language: str = "hi-IN") -> str:
     try:
         converted = convert_twilio_wav_to_16k(audio_bytes)
 
-        # Check if audio is mostly silence (all near-zero samples)
         with wave.open(io.BytesIO(converted), 'rb') as w:
             raw = w.readframes(w.getnframes())
         pcm_check = np.frombuffer(raw, dtype=np.int16)
