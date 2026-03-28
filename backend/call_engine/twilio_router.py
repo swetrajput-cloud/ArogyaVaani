@@ -151,14 +151,13 @@ async def language_select(
     state["script"] = script
     state["question_index"] = 0
 
-    lang = language
     greeting = script["greeting"]
     first_q = script["questions"][0]["text"] if script["questions"] else script["closing"]
 
     response = VoiceResponse()
-    response.say(greeting, language=_twiml_lang(lang), voice=_voice(lang))
+    response.say(greeting, language=_twiml_lang(language), voice=_voice(language))
     response.pause(length=1)
-    response.say(first_q, language=_twiml_lang(lang), voice=_voice(lang))
+    response.say(first_q, language=_twiml_lang(language), voice=_voice(language))
     response.record(
         action=f"{BASE_URL}/twilio/record-answer?call_sid={call_sid}&q_index=0",
         method="POST",
@@ -209,6 +208,18 @@ async def record_answer(
 
     if transcript:
         state["transcript_parts"].append(transcript)
+        # Broadcast live to dashboard immediately after transcript received
+        await broadcast_update({
+            "call_sid":          call_sid,
+            "patient_id":        state["patient_id"],
+            "patient_name":      state.get("patient_name"),
+            "risk_tier":         state.get("risk_tier", "GREEN"),
+            "escalate":          False,
+            "escalation_reason": "",
+            "transcript":        transcript,
+            "nlp":               {},
+        })
+        print(f"[Dashboard] Live broadcast sent for patient {state['patient_id']}")
 
     if transcript and is_urgent(transcript, language):
         urgent_msg = get_urgent_alert(language)

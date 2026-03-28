@@ -54,7 +54,9 @@ async def dashboard_ws(websocket: WebSocket):
     await connect_client(websocket)
     try:
         while True:
-            await websocket.receive_text()
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_text("pong")
     except WebSocketDisconnect:
         disconnect_client(websocket)
 

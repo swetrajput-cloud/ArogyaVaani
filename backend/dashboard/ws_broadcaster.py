@@ -1,8 +1,8 @@
 import json
+import asyncio
 from typing import Set
 from fastapi import WebSocket
 
-# All connected dashboard clients
 _connected_clients: Set[WebSocket] = set()
 
 async def connect_client(websocket: WebSocket):
@@ -17,6 +17,7 @@ def disconnect_client(websocket: WebSocket):
 async def broadcast_update(data: dict):
     """Send live update to all connected dashboard WebSocket clients."""
     if not _connected_clients:
+        print(f"[Dashboard] No clients connected, skipping broadcast")
         return
     message = json.dumps(data)
     dead = set()
@@ -27,3 +28,4 @@ async def broadcast_update(data: dict):
             dead.add(client)
     for d in dead:
         _connected_clients.discard(d)
+    print(f"[Dashboard] Broadcasted to {len(_connected_clients)} clients")
