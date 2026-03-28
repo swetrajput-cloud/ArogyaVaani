@@ -8,7 +8,8 @@ export default function useWebSocket() {
 
   useEffect(() => {
     const connect = () => {
-      ws.current = new WebSocket('ws://localhost:8000/ws/dashboard')
+      const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000'
+      ws.current = new WebSocket(`${WS_URL}/ws/dashboard`)
 
       ws.current.onopen = () => {
         setConnected(true)

@@ -4,6 +4,8 @@ import { getPatient, initiateCall } from '../api/client'
 import RiskBadge from '../components/RiskBadge'
 import { ArrowLeft, Phone, Heart, Clock, AlertTriangle } from 'lucide-react'
 
+const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
 const RISK_COLORS = {
   RED:   { bg: 'bg-red-100',    text: 'text-red-700',    dot: 'bg-red-500' },
   AMBER: { bg: 'bg-yellow-100', text: 'text-yellow-700', dot: 'bg-yellow-500' },
@@ -33,11 +35,10 @@ export default function PatientDetail() {
     fetchPatientCalls()
   }, [id])
 
-  // ✅ UPDATED: uses dedicated patient calls endpoint
   const fetchPatientCalls = async () => {
     setCallsLoading(true)
     try {
-      const res = await fetch(`http://localhost:8000/calls/patient/${id}`)
+      const res = await fetch(`${BASE}/calls/patient/${id}`)
       const data = await res.json()
       setCalls(data.calls || [])
     } catch (e) {
@@ -89,7 +90,6 @@ export default function PatientDetail() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4">
         <button onClick={() => navigate('/')} className="text-gray-400 hover:text-gray-700">
           <ArrowLeft size={20} />
@@ -114,15 +114,12 @@ export default function PatientDetail() {
       </div>
 
       <div className="max-w-4xl mx-auto px-6 py-6 space-y-6">
-
-        {/* Condition */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
           <h2 className="font-semibold text-gray-700 mb-1">Condition</h2>
           <p className="text-gray-600">{patient.condition}</p>
           <p className="text-xs text-gray-400 mt-1">Module: {patient.module_type} | Language: {patient.language}</p>
         </div>
 
-        {/* Vitals */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
           <h2 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
             <Heart size={16} className="text-red-500" /> Vitals
@@ -139,7 +136,6 @@ export default function PatientDetail() {
           </div>
         </div>
 
-        {/* Risk Scores */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
           <h2 className="font-semibold text-gray-700 mb-3">Risk Assessment</h2>
           <RiskRow label="Heart Risk"        level={patient.heart_risk_level}        score={patient.heart_risk_total_score} />
@@ -151,7 +147,6 @@ export default function PatientDetail() {
           </div>
         </div>
 
-        {/* Symptoms & Lifestyle */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
             <h2 className="font-semibold text-gray-700 mb-3">Symptoms</h2>
@@ -188,7 +183,6 @@ export default function PatientDetail() {
           </div>
         </div>
 
-        {/* Call History */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
           <h2 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
             <Clock size={16} className="text-blue-500" /> Call History
@@ -270,7 +264,6 @@ export default function PatientDetail() {
             </div>
           )}
         </div>
-
       </div>
     </div>
   )

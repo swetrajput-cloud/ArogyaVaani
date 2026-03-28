@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
 const RISK_COLORS = {
   RED:   { bg: 'bg-red-100',    text: 'text-red-700',    dot: 'bg-red-500',    label: 'High Risk' },
   AMBER: { bg: 'bg-yellow-100', text: 'text-yellow-700', dot: 'bg-yellow-500', label: 'Moderate' },
@@ -28,12 +30,12 @@ function StatCard({ label, value, color }) {
 
 export default function CallHistory() {
   const navigate = useNavigate()
-  const [calls, setCalls]       = useState([])
-  const [stats, setStats]       = useState(null)
-  const [loading, setLoading]   = useState(true)
-  const [filter, setFilter]     = useState('ALL')
+  const [calls, setCalls]         = useState([])
+  const [stats, setStats]         = useState(null)
+  const [loading, setLoading]     = useState(true)
+  const [filter, setFilter]       = useState('ALL')
   const [escalated, setEscalated] = useState(false)
-  const [selected, setSelected] = useState(null)
+  const [selected, setSelected]   = useState(null)
 
   useEffect(() => {
     fetchStats()
@@ -41,14 +43,14 @@ export default function CallHistory() {
   }, [filter, escalated])
 
   async function fetchStats() {
-    const res = await fetch('http://localhost:8000/calls/stats')
+    const res = await fetch(`${BASE}/calls/stats`)
     const data = await res.json()
     setStats(data)
   }
 
   async function fetchCalls() {
     setLoading(true)
-    let url = 'http://localhost:8000/calls?limit=100'
+    let url = `${BASE}/calls?limit=100`
     if (filter !== 'ALL') url += `&risk_tier=${filter}`
     if (escalated) url += `&escalated_only=true`
     const res = await fetch(url)
@@ -66,7 +68,6 @@ export default function CallHistory() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/')} className="text-gray-400 hover:text-gray-600 text-xl">←</button>
@@ -84,18 +85,16 @@ export default function CallHistory() {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
-        {/* Stats */}
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <StatCard label="Total Calls"   value={stats.total_calls} color="text-gray-900" />
-            <StatCard label="High Risk"     value={stats.red}         color="text-red-600" />
-            <StatCard label="Moderate"      value={stats.amber}       color="text-yellow-600" />
-            <StatCard label="Low Risk"      value={stats.green}       color="text-green-600" />
-            <StatCard label="Escalated"     value={stats.escalated}   color="text-purple-600" />
+            <StatCard label="Total Calls" value={stats.total_calls} color="text-gray-900" />
+            <StatCard label="High Risk"   value={stats.red}         color="text-red-600" />
+            <StatCard label="Moderate"    value={stats.amber}       color="text-yellow-600" />
+            <StatCard label="Low Risk"    value={stats.green}       color="text-green-600" />
+            <StatCard label="Escalated"   value={stats.escalated}   color="text-purple-600" />
           </div>
         )}
 
-        {/* Filters */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex gap-2">
             {['ALL', 'RED', 'AMBER', 'GREEN'].map(f => (
@@ -124,7 +123,6 @@ export default function CallHistory() {
           <span className="ml-auto text-sm text-gray-400">{calls.length} calls</span>
         </div>
 
-        {/* Table */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center py-20 text-gray-400">Loading calls...</div>
@@ -186,7 +184,6 @@ export default function CallHistory() {
         </div>
       </div>
 
-      {/* Detail Modal */}
       {selected && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -198,7 +195,6 @@ export default function CallHistory() {
               <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
             </div>
             <div className="p-6 space-y-5">
-              {/* Risk + Escalation */}
               <div className="flex gap-3 flex-wrap">
                 <RiskBadge tier={selected.risk_tier} />
                 {selected.escalate_flag && (
@@ -207,45 +203,30 @@ export default function CallHistory() {
                   </span>
                 )}
               </div>
-
-              {/* Transcript */}
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Transcript</p>
                 <div className="bg-gray-50 rounded-lg p-3 text-gray-700 text-sm">{selected.transcript || '—'}</div>
               </div>
-
-              {/* NLP Output */}
               {selected.structured_output && (
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase mb-2">NLP Analysis</p>
                   <div className="grid grid-cols-2 gap-3">
                     {[
-                      ['Topic',       selected.structured_output.topic],
-                      ['Sentiment',   selected.structured_output.sentiment],
-                      ['Severity',    selected.structured_output.severity ? `${selected.structured_output.severity}/5` : null],
-                      ['Pain Level',  selected.structured_output.pain_level],
-                      ['Needs Followup', selected.structured_output.needs_followup ? 'Yes' : 'No'],
-                      ['Language',    selected.language],
-                    ].map(([label, value]) => value && (
+                      ['Topic',          selected.structured_output.topic],
+                      ['Sentiment',      selected.structured_output.sentiment],
+                      ['Severity',       selected.structured_output.severity ? `${selected.structured_output.severity}/5` : null],
+                      ['Pain Level',     selected.structured_output.structured_answer?.pain_level],
+                      ['Needs Followup', selected.structured_output.structured_answer?.needs_followup ? 'Yes' : 'No'],
+                      ['Language',       selected.language],
+                    ].filter(([, v]) => v).map(([label, value]) => (
                       <div key={label} className="bg-gray-50 rounded-lg p-3">
                         <p className="text-xs text-gray-400">{label}</p>
                         <p className="font-semibold text-gray-800 capitalize">{value}</p>
                       </div>
                     ))}
                   </div>
-                  {selected.structured_output.symptoms_detected?.length > 0 && (
-                    <div className="mt-3">
-                      <p className="text-xs text-gray-400 mb-1">Symptoms</p>
-                      <div className="flex flex-wrap gap-2">
-                        {selected.structured_output.symptoms_detected.map(s => (
-                          <span key={s} className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-xs">{s}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
-
               <p className="text-xs text-gray-400 text-right">{formatTime(selected.created_at)}</p>
             </div>
           </div>
