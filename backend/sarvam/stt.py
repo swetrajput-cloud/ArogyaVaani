@@ -11,7 +11,7 @@ async def transcribe_audio(audio_bytes: bytes, language: str = "hi-IN") -> str:
         }
         data = {
             "language_code": language,
-            "model": "saarika:v2",
+            "model": "saarika:v2.5",
         }
         headers = {
             "api-subscription-key": settings.SARVAM_API_KEY,
