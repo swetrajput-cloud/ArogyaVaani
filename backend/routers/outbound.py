@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from models.database import SessionLocal
 from models.patient import Patient
-from services.exotel import make_call
+from services.call_conductor import conduct_call, conduct_bulk_calls
 from config import settings
 import os
 
@@ -19,30 +19,55 @@ def get_db():
 class CallRequest(BaseModel):
     patient_id: int
 
+class BulkCallRequest(BaseModel):
+    risk_tiers: list = ["RED", "AMBER"]
+    limit: int = 10
+    delay_seconds: int = 5
+
 @router.post("/call")
 async def outbound_call(req: CallRequest, db: Session = Depends(get_db)):
-    """Trigger an outbound call to a patient via Exotel."""
+    """Trigger an outbound call to a single patient via Exotel."""
     patient = db.query(Patient).filter(Patient.id == req.patient_id).first()
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
 
-    # Use BASE_URL from env so it works both locally (ngrok) and on Railway
-    base_url = os.getenv("BASE_URL", "http://localhost:8000").rstrip("/")
-    callback_url = f"{base_url}/inbound/voice"
+    result = await conduct_call(req.patient_id)
+    return result
 
-    result = await make_call(
-        to_number=patient.phone,
-        from_number=settings.EXOTEL_PHONE_NUMBER,
-        api_key=settings.EXOTEL_API_KEY,
-        api_token=settings.EXOTEL_API_TOKEN,
-        account_sid=settings.EXOTEL_ACCOUNT_SID,
-        callback_url=callback_url,
+@router.post("/bulk-call")
+async def bulk_call(req: BulkCallRequest, background_tasks: BackgroundTasks):
+    """Trigger outbound calls for multiple patients in background."""
+    background_tasks.add_task(
+        conduct_bulk_calls,
+        risk_tiers=req.risk_tiers,
+        limit=req.limit,
+        delay_seconds=req.delay_seconds,
+    )
+    return {
+        "status": "bulk calls started in background",
+        "risk_tiers": req.risk_tiers,
+        "limit": req.limit,
+    }
+
+@router.get("/preview/{patient_id}")
+async def preview_call_script(patient_id: int):
+    """Preview the call script for a patient without making the call."""
+    from services.patient_selector import get_patient_call_profile
+    from models_ai.call_brain import build_call_script
+
+    profile = get_patient_call_profile(patient_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    script = build_call_script(
+        patient_name=profile["name"],
+        condition=profile["condition"],
+        risk_level=profile["risk_tier"],
+        language=profile["language"],
+        max_questions=5
     )
 
     return {
-        "status": "call initiated",
-        "patient": patient.name,
-        "phone": patient.phone,
-        "callback_url": callback_url,
-        "exotel_response": result,
+        "patient": profile,
+        "script": script,
     }

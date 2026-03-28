@@ -1,0 +1,372 @@
+{
+  "version": "1.0",
+  "languages": ["hindi", "english", "marathi", "tamil"],
+  "categories": {
+    "greeting": {
+      "hindi":   "नमस्ते {name} जी, मैं आरोग्यवाणी से बोल रहा हूँ। आप कैसे हैं?",
+      "english": "Hello {name}, this is ArogyaVaani calling. How are you feeling today?",
+      "marathi": "नमस्कार {name}, मी आरोग्यवाणीतून बोलत आहे. तुम्ही कसे आहात?",
+      "tamil":   "வணக்கம் {name}, நான் ஆரோக்யவாணியிலிருந்து பேசுகிறேன். நீங்கள் எப்படி இருக்கிறீர்கள்?"
+    },
+    "closing": {
+      "hindi":   "ठीक है {name} जी, आपसे बात करके अच्छा लगा। अपना ख्याल रखें। नमस्ते।",
+      "english": "Thank you {name}, it was good talking to you. Please take care. Goodbye.",
+      "marathi": "ठीक आहे {name}, तुमच्याशी बोलून बरे वाटले. स्वतःची काळजी घ्या. नमस्कार.",
+      "tamil":   "சரி {name}, உங்களிடம் பேசி மகிழ்ச்சி. உங்களை கவனித்துக்கொள்ளுங்கள். வணக்கம்."
+    },
+    "urgent_alert": {
+      "hindi":   "यह बहुत जरूरी है। कृपया तुरंत डॉक्टर से मिलें।",
+      "english": "This is urgent. Please see a doctor immediately.",
+      "marathi": "हे खूप महत्त्वाचे आहे. कृपया ताबडतोब डॉक्टरांना भेटा.",
+      "tamil":   "இது மிகவும் அவசரமானது. உடனே மருத்துவரை சந்தியுங்கள்."
+    }
+  },
+  "urgent_keywords": {
+    "hindi":   ["सीने में दर्द", "सांस नहीं", "बेहोश", "खून", "बहुत तेज दर्द", "दौरा"],
+    "english": ["chest pain", "can't breathe", "unconscious", "bleeding", "severe pain", "seizure"],
+    "marathi": ["छातीत दुखणे", "श्वास नाही", "बेशुद्ध", "रक्त", "खूप वेदना", "दौरा"],
+    "tamil":   ["நெஞ்சு வலி", "சுவாசிக்க முடியவில்லை", "மயக்கம்", "இரத்தம்", "கடுமையான வலி"]
+  },
+  "questions": [
+    {
+      "id": "Q001",
+      "category": "general",
+      "conditions": ["all"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "आज आप कैसा महसूस कर रहे हैं?",
+      "english": "How are you feeling today?",
+      "marathi": "आज तुम्हाला कसे वाटत आहे?",
+      "tamil":   "இன்று நீங்கள் எப்படி உணர்கிறீர்கள்?"
+    },
+    {
+      "id": "Q002",
+      "category": "general",
+      "conditions": ["all"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या आपको कोई नई तकलीफ हो रही है?",
+      "english": "Have you noticed any new symptoms?",
+      "marathi": "तुम्हाला कोणतीही नवीन तक्रार आहे का?",
+      "tamil":   "ஏதாவது புதிய அறிகுறிகள் தெரிகிறதா?"
+    },
+    {
+      "id": "Q003",
+      "category": "medication",
+      "conditions": ["all"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या आप अपनी दवाइयाँ नियमित रूप से ले रहे हैं?",
+      "english": "Are you taking your medicines regularly?",
+      "marathi": "तुम्ही औषधे नियमितपणे घेत आहात का?",
+      "tamil":   "மருந்துகளை தவறாமல் எடுத்துக்கொள்கிறீர்களா?"
+    },
+    {
+      "id": "Q004",
+      "category": "medication",
+      "conditions": ["all"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या दवाइयों से कोई साइड इफेक्ट हो रहा है?",
+      "english": "Are you experiencing any side effects from your medicines?",
+      "marathi": "औषधांमुळे काही दुष्परिणाम होत आहेत का?",
+      "tamil":   "மருந்துகளால் பக்க விளைவுகள் உள்ளனவா?"
+    },
+    {
+      "id": "Q005",
+      "category": "diet",
+      "conditions": ["all"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या आप खाने-पीने का ध्यान रख रहे हैं?",
+      "english": "Are you following a proper diet?",
+      "marathi": "तुम्ही आहाराची काळजी घेत आहात का?",
+      "tamil":   "சரியான உணவு முறையை பின்பற்றுகிறீர்களா?"
+    },
+    {
+      "id": "Q006",
+      "category": "diet",
+      "conditions": ["all"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या आप पर्याप्त पानी पी रहे हैं?",
+      "english": "Are you drinking enough water?",
+      "marathi": "तुम्ही पुरेसे पाणी पित आहात का?",
+      "tamil":   "போதுமான அளவு தண்ணீர் குடிக்கிறீர்களா?"
+    },
+    {
+      "id": "Q007",
+      "category": "sleep",
+      "conditions": ["all"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या आपकी नींद ठीक से आ रही है?",
+      "english": "Are you sleeping well at night?",
+      "marathi": "तुमची झोप व्यवस्थित होत आहे का?",
+      "tamil":   "இரவில் நன்றாக தூங்குகிறீர்களா?"
+    },
+    {
+      "id": "Q008",
+      "category": "pain",
+      "conditions": ["all"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या आपको कहीं दर्द हो रहा है?",
+      "english": "Are you experiencing any pain in your body?",
+      "marathi": "तुम्हाला कुठे वेदना होत आहे का?",
+      "tamil":   "உடலில் எங்காவது வலி இருக்கிறதா?"
+    },
+    {
+      "id": "Q009",
+      "category": "pain",
+      "conditions": ["all"],
+      "risk_levels": ["HIGH"],
+      "hindi":   "दर्द 1 से 10 के पैमाने पर कितना है?",
+      "english": "On a scale of 1 to 10, how bad is the pain?",
+      "marathi": "1 ते 10 च्या प्रमाणात वेदना किती आहे?",
+      "tamil":   "1 முதல் 10 அளவில் வலி எந்த அளவில் உள்ளது?"
+    },
+    {
+      "id": "Q010",
+      "category": "diabetes",
+      "conditions": ["Type 2 Diabetes", "Diabetic Ketoacidosis"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या आपने आज अपनी ब्लड शुगर चेक की?",
+      "english": "Have you checked your blood sugar level today?",
+      "marathi": "आज रक्तातील साखर तपासली का?",
+      "tamil":   "இன்று இரத்த சர்க்கரை அளவை சரிபார்த்தீர்களா?"
+    },
+    {
+      "id": "Q011",
+      "category": "diabetes",
+      "conditions": ["Type 2 Diabetes", "Diabetic Ketoacidosis"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "आपकी ब्लड शुगर कितनी थी?",
+      "english": "What was your blood sugar reading?",
+      "marathi": "रक्तातील साखर किती होती?",
+      "tamil":   "இரத்த சர்க்கரை அளவு என்ன இருந்தது?"
+    },
+    {
+      "id": "Q012",
+      "category": "diabetes",
+      "conditions": ["Type 2 Diabetes"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या आपको बहुत प्यास लग रही है?",
+      "english": "Are you feeling excessively thirsty?",
+      "marathi": "तुम्हाला जास्त तहान लागत आहे का?",
+      "tamil":   "அதிகமாக தாகம் உணர்கிறீர்களா?"
+    },
+    {
+      "id": "Q013",
+      "category": "diabetes",
+      "conditions": ["Type 2 Diabetes"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या बार-बार पेशाब आ रहा है?",
+      "english": "Are you urinating more frequently than usual?",
+      "marathi": "तुम्हाला वारंवार लघवी होत आहे का?",
+      "tamil":   "வழக்கத்தை விட அடிக்கடி சிறுநீர் கழிக்கிறீர்களா?"
+    },
+    {
+      "id": "Q014",
+      "category": "diabetes",
+      "conditions": ["Type 2 Diabetes"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या आपके पैरों में सुन्नपन है?",
+      "english": "Do you feel any numbness in your feet?",
+      "marathi": "पायांमध्ये सुन्नपणा आहे का?",
+      "tamil":   "கால்களில் மரத்துப்போதல் உணர்கிறீர்களா?"
+    },
+    {
+      "id": "Q015",
+      "category": "hypertension",
+      "conditions": ["Hypertension"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या आपने आज अपना ब्लड प्रेशर चेक किया?",
+      "english": "Have you checked your blood pressure today?",
+      "marathi": "आज रक्तदाब मोजला का?",
+      "tamil":   "இன்று இரத்த அழுத்தத்தை சரிபார்த்தீர்களா?"
+    },
+    {
+      "id": "Q016",
+      "category": "hypertension",
+      "conditions": ["Hypertension"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "आपका ब्लड प्रेशर कितना था?",
+      "english": "What was your blood pressure reading?",
+      "marathi": "रक्तदाब किती होता?",
+      "tamil":   "இரத்த அழுத்தம் என்ன இருந்தது?"
+    },
+    {
+      "id": "Q017",
+      "category": "hypertension",
+      "conditions": ["Hypertension"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या आपको सिरदर्द हो रहा है?",
+      "english": "Are you experiencing any headaches?",
+      "marathi": "तुम्हाला डोकेदुखी होत आहे का?",
+      "tamil":   "தலைவலி இருக்கிறதா?"
+    },
+    {
+      "id": "Q018",
+      "category": "hypertension",
+      "conditions": ["Hypertension"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या आप नमक कम खा रहे हैं?",
+      "english": "Are you reducing your salt intake?",
+      "marathi": "मीठ कमी खात आहात का?",
+      "tamil":   "உப்பு உட்கொள்ளலை குறைத்திருக்கிறீர்களா?"
+    },
+    {
+      "id": "Q019",
+      "category": "hypertension",
+      "conditions": ["Hypertension"],
+      "risk_levels": ["HIGH"],
+      "hindi":   "क्या आपको चक्कर आ रहे हैं?",
+      "english": "Are you feeling dizzy?",
+      "marathi": "चक्कर येत आहे का?",
+      "tamil":   "தலைசுற்றல் உணர்கிறீர்களா?"
+    },
+    {
+      "id": "Q020",
+      "category": "heart",
+      "conditions": ["Coronary Artery Disease", "Myocardial Infarction"],
+      "risk_levels": ["HIGH"],
+      "hindi":   "क्या आपको सीने में दर्द या भारीपन है?",
+      "english": "Are you experiencing any chest pain or heaviness?",
+      "marathi": "छातीत दुखणे किंवा जडपणा आहे का?",
+      "tamil":   "நெஞ்சு வலி அல்லது கனம் உணர்கிறீர்களா?"
+    },
+    {
+      "id": "Q021",
+      "category": "heart",
+      "conditions": ["Coronary Artery Disease", "Myocardial Infarction"],
+      "risk_levels": ["HIGH"],
+      "hindi":   "क्या आपको सांस लेने में तकलीफ है?",
+      "english": "Are you having difficulty breathing?",
+      "marathi": "श्वास घेण्यास त्रास होत आहे का?",
+      "tamil":   "சுவாசிக்க சிரமம் இருக்கிறதா?"
+    },
+    {
+      "id": "Q022",
+      "category": "heart",
+      "conditions": ["Coronary Artery Disease"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या आप हल्का व्यायाम कर पा रहे हैं?",
+      "english": "Are you able to do light walking or exercise?",
+      "marathi": "हलका व्यायाम किंवा चालणे करू शकता का?",
+      "tamil":   "லேசான நடை அல்லது உடற்பயிற்சி செய்ய முடிகிறதா?"
+    },
+    {
+      "id": "Q023",
+      "category": "respiratory",
+      "conditions": ["Asthma", "COPD (Emphysema)", "Acute Bronchitis"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या आपको खांसी हो रही है?",
+      "english": "Are you experiencing any cough?",
+      "marathi": "खोकला येत आहे का?",
+      "tamil":   "இருமல் இருக்கிறதா?"
+    },
+    {
+      "id": "Q024",
+      "category": "respiratory",
+      "conditions": ["Asthma"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या आप अपना इनहेलर इस्तेमाल कर रहे हैं?",
+      "english": "Are you using your inhaler as prescribed?",
+      "marathi": "इनहेलर वापरत आहात का?",
+      "tamil":   "இன்ஹேலர் பயன்படுத்துகிறீர்களா?"
+    },
+    {
+      "id": "Q025",
+      "category": "respiratory",
+      "conditions": ["COPD (Emphysema)"],
+      "risk_levels": ["HIGH"],
+      "hindi":   "क्या आपने धूम्रपान छोड़ दिया है?",
+      "english": "Have you completely stopped smoking?",
+      "marathi": "धूम्रपान पूर्णपणे सोडले आहे का?",
+      "tamil":   "புகைப்பிடிப்பதை முற்றிலும் நிறுத்தினீர்களா?"
+    },
+    {
+      "id": "Q026",
+      "category": "kidney",
+      "conditions": ["Chronic Kidney Disease", "Kidney Stones"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या आपके पैरों में सूजन है?",
+      "english": "Do you have any swelling in your legs?",
+      "marathi": "पायांना सूज आहे का?",
+      "tamil":   "கால்களில் வீக்கம் இருக்கிறதா?"
+    },
+    {
+      "id": "Q027",
+      "category": "kidney",
+      "conditions": ["Kidney Stones"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या पेशाब करते समय दर्द होता है?",
+      "english": "Do you feel pain while urinating?",
+      "marathi": "लघवी करताना वेदना होतात का?",
+      "tamil":   "சிறுநீர் கழிக்கும்போது வலி உணர்கிறீர்களா?"
+    },
+    {
+      "id": "Q028",
+      "category": "mental_health",
+      "conditions": ["Major Depression", "Generalized Anxiety", "PTSD", "Bipolar Disorder"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या आप मानसिक रूप से ठीक महसूस कर रहे हैं?",
+      "english": "How are you feeling mentally and emotionally?",
+      "marathi": "तुम्ही मानसिकदृष्ट्या ठीक आहात का?",
+      "tamil":   "மன ரீதியாக எப்படி உணர்கிறீர்கள்?"
+    },
+    {
+      "id": "Q029",
+      "category": "mental_health",
+      "conditions": ["Major Depression"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या आपको उदासी या निराशा महसूस हो रही है?",
+      "english": "Are you feeling sad or hopeless lately?",
+      "marathi": "तुम्हाला उदासी किंवा निराशा वाटत आहे का?",
+      "tamil":   "சமீபத்தில் சோகமாக அல்லது நம்பிக்கையற்றதாக உணர்கிறீர்களா?"
+    },
+    {
+      "id": "Q030",
+      "category": "mental_health",
+      "conditions": ["Generalized Anxiety"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या आपको बहुत चिंता या घबराहट हो रही है?",
+      "english": "Are you feeling very anxious or worried?",
+      "marathi": "तुम्हाला खूप चिंता किंवा घबराट होत आहे का?",
+      "tamil":   "மிகவும் கவலையாக அல்லது பதட்டமாக உணர்கிறீர்களா?"
+    },
+    {
+      "id": "Q031",
+      "category": "fever",
+      "conditions": ["Influenza (Flu)", "Typhoid Fever", "Malaria", "Dengue Fever"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या आपको बुखार है?",
+      "english": "Do you have a fever?",
+      "marathi": "तुम्हाला ताप आहे का?",
+      "tamil":   "உங்களுக்கு காய்ச்சல் இருக்கிறதா?"
+    },
+    {
+      "id": "Q032",
+      "category": "fever",
+      "conditions": ["Influenza (Flu)", "Typhoid Fever", "Malaria", "Dengue Fever"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "बुखार कितना है?",
+      "english": "What is your temperature reading?",
+      "marathi": "ताप किती आहे?",
+      "tamil":   "வெப்பநிலை எவ்வளவு?"
+    },
+    {
+      "id": "Q033",
+      "category": "followup",
+      "conditions": ["all"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या आप डॉक्टर के पास दोबारा जाने का सोच रहे हैं?",
+      "english": "Are you planning to visit the doctor again soon?",
+      "marathi": "तुम्ही पुन्हा डॉक्टरांकडे जाण्याचा विचार करत आहात का?",
+      "tamil":   "மீண்டும் மருத்துவரிடம் செல்ல திட்டமிட்டிருக்கிறீர்களா?"
+    },
+    {
+      "id": "Q034",
+      "category": "followup",
+      "conditions": ["all"],
+      "risk_levels": ["HIGH", "MODERATE"],
+      "hindi":   "क्या आपको किसी और मदद की जरूरत है?",
+      "english": "Is there anything else I can help you with?",
+      "marathi": "तुम्हाला आणखी काही मदत हवी आहे का?",
+      "tamil":   "வேறு ஏதாவது உதவி தேவையா?"
+    }
+  ]
+}
