@@ -64,5 +64,3 @@ coverage.xml
 # ─── Docker ───────────────────────────────────────────────────────────────────
 *.env.docker
 
-# ─── Uploads / Data (optional - remove if you want CSV in repo) ───────────────
-backend/data/
