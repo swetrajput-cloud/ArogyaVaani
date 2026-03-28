@@ -10,7 +10,7 @@ const api = axios.create({
 export const getPatients = (params = {}) => api.get('/patients', { params })
 export const getPatient = (id) => api.get(`/patients/${id}`)
 export const getStats = () => api.get('/stats')
-export const initiateCall = (patientId) => api.post(`/webhook/initiate/${patientId}`)
+export const initiateCall = (patientId) => api.post('/outbound/call', { patient_id: patientId })
 export const simulateCall = (data) => api.post('/simulate/call', data)
 
 export default api
