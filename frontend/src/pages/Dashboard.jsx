@@ -55,6 +55,12 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-3">
           <button
+            onClick={() => navigate('/vaccination')}
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 transition"
+          >
+            🍼 Vaccination
+          </button>
+          <button
             onClick={() => navigate('/calls')}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
           >
