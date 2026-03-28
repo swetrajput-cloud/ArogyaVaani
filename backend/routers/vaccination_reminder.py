@@ -111,3 +111,27 @@ async def trigger_reminder_calls(background_tasks: BackgroundTasks):
         called += 1
 
     return {"message": f"Triggered {called} reminder calls", "called": called}
+
+class TriggerNowRequest(BaseModel):
+    reminder_id: int
+
+@router.post("/trigger-now")
+async def trigger_single_now(req: TriggerNowRequest):
+    """Force trigger a single reminder call right now — for testing."""
+    db = SessionLocal()
+    try:
+        r = db.query(VaccinationReminder).filter(
+            VaccinationReminder.id == req.reminder_id
+        ).first()
+        if not r:
+            return {"error": "Reminder not found"}
+
+        call_sid = await _make_twilio_call(
+            phone=r.patient_phone,
+            reminder_id=r.id,
+            vaccine_name=r.vaccine_name,
+            due_date=str(r.due_date),
+        )
+        return {"called": True, "call_sid": call_sid, "vaccine": r.vaccine_name, "phone": r.patient_phone}
+    finally:
+        db.close()
