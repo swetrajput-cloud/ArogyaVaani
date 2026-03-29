@@ -53,12 +53,12 @@ def _voice(language: str) -> str:
 
 def _finish_instruction(language: str) -> str:
     instructions = {
-        "hindi":   " बोलने के बाद 1 दबाएं।",
-        "english": " Press 1 when done speaking.",
-        "marathi": " बोलून झाल्यावर 1 दाबा।",
-        "tamil":   " பேசி முடிந்தால் 1 அழுத்துங்கள்।",
+        "hindi":   " बोलने के बाद # दबाएं।",
+        "english": " Press # when done speaking.",
+        "marathi": " बोलून झाल्यावर # दाबा।",
+        "tamil":   " பேசி முடிந்தால் # அழுத்துங்கள்।",
     }
-    return instructions.get(language, " बोलने के बाद 1 दबाएं।")
+    return instructions.get(language, " बोलने के बाद # दबाएं।")
 
 
 @router.post("/answered")
@@ -178,7 +178,7 @@ async def language_select(
         action=f"{BASE_URL}/twilio/record-answer?call_sid={call_sid}&q_index=0",
         method="POST",
         max_length=25,
-        finish_on_key="1",
+        finish_on_key="#",
         play_beep=True,
         transcribe=False,
         timeout=8,
@@ -281,7 +281,7 @@ async def record_answer(
             action=f"{BASE_URL}/twilio/record-answer?call_sid={call_sid}&q_index={next_index}",
             method="POST",
             max_length=25,
-            finish_on_key="1",
+            finish_on_key="#",
             play_beep=True,
             transcribe=False,
             timeout=8,
