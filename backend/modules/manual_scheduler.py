@@ -6,7 +6,6 @@ and injects the custom_note into the call state so Groq mentions it naturally.
 
 import asyncio
 import os
-import urllib.parse
 from datetime import datetime
 from models.database import SessionLocal
 from models.scheduled_call import ScheduledCall
@@ -48,8 +47,10 @@ def _fire_due_calls():
                 continue
 
             try:
+                # Pass custom_note as query param so twilio/answered can pick it up
                 note_param = ""
                 if entry.custom_note:
+                    import urllib.parse
                     note_param = f"&custom_note={urllib.parse.quote(entry.custom_note)}"
 
                 result = make_call(
@@ -62,10 +63,10 @@ def _fire_due_calls():
                 entry.call_sid = result.get("sid")
                 entry.fired_at = datetime.utcnow()
                 db.commit()
-                print(f"[ManualScheduler] ✅ Fired: {patient.name} ({patient.phone}) SID:{entry.call_sid}")
+                print(f"[ManualScheduler] Fired: Patient {patient.name} ({patient.phone}) SID:{entry.call_sid}")
 
             except Exception as e:
-                print(f"[ManualScheduler] ❌ Failed for patient {patient.id}: {e}")
+                print(f"[ManualScheduler] Failed for patient {patient.id}: {e}")
                 entry.status = "failed"
                 db.commit()
 
