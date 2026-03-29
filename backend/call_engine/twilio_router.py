@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import httpx
 import asyncio
 from fastapi import APIRouter, Request, Form
@@ -17,6 +18,7 @@ from models_ai.call_brain import build_call_script, is_urgent, get_urgent_alert
 from modules.vaccination_reminder_engine import mark_reminder_called
 from alerts.doctor_sms import send_doctor_alert, _send_whatsapp
 from datetime import datetime
+from urllib.parse import unquote
 import os
 
 router = APIRouter(prefix="/twilio", tags=["twilio"])
@@ -240,7 +242,6 @@ async def record_answer(
             "transcript":        transcript,
             "nlp":               {},
         })
-        print(f"[Dashboard] Live broadcast sent for patient {state['patient_id']}")
 
     if transcript and is_urgent(transcript, language):
         urgent_msg = get_urgent_alert(language)
@@ -309,13 +310,19 @@ async def call_status(
 
 @router.post("/vaccination-reminder-twiml")
 async def vaccination_reminder_twiml(request: Request):
-    vaccine = request.query_params.get("vaccine", "टीका")
-    due     = request.query_params.get("due", "अगले सप्ताह")
+    vaccine = unquote(request.query_params.get("vaccine", "टीका"))
+    due     = unquote(request.query_params.get("due", "अगले सप्ताह"))
+
+    # Format date nicely: 2026-04-12 → 12 April 2026
+    try:
+        due_formatted = datetime.strptime(due, "%Y-%m-%d").strftime("%d %B %Y")
+    except Exception:
+        due_formatted = due
 
     response = VoiceResponse()
     response.say(
         f"नमस्ते! आरोग्यवाणी से एक महत्वपूर्ण सूचना। "
-        f"आपके बच्चे का {vaccine} का टीका {due} को लगवाना है। "
+        f"आपके बच्चे का {vaccine} का टीका {due_formatted} को लगवाना है। "
         f"कृपया अपने नजदीकी स्वास्थ्य केंद्र में जाएं। "
         f"यह कॉल आरोग्यवाणी स्वास्थ्य सेवा द्वारा है। धन्यवाद।",
         language="hi-IN",
@@ -323,7 +330,7 @@ async def vaccination_reminder_twiml(request: Request):
     )
     response.pause(length=1)
     response.say(
-        f"Reminder: {vaccine} vaccination is due on {due}. "
+        f"Reminder: {vaccine} vaccination is due on {due_formatted}. "
         f"Please visit your nearest health center. Thank you.",
         language="en-IN",
         voice="Polly.Raveena",
@@ -349,7 +356,7 @@ async def _save_call_record(
     nlp_output=None, call_status="completed", duration=0
 ):
     if state.get("record_saved"):
-        print(f"[Twilio] Record already saved for {call_sid}, skipping duplicate save")
+        print(f"[Twilio] Record already saved for {call_sid}, skipping duplicate")
         return
     state["record_saved"] = True
 
@@ -359,8 +366,8 @@ async def _save_call_record(
         patient = db.query(Patient).filter(Patient.id == state["patient_id"]).first()
         if patient:
             patient.current_risk_tier = risk_tier
-            patient.last_called_at = datetime.utcnow()
-            patient.updated_at = datetime.utcnow()
+            patient.last_called_at    = datetime.utcnow()
+            patient.updated_at        = datetime.utcnow()
 
         record = CallRecord(
             patient_id        = state["patient_id"],
@@ -413,7 +420,6 @@ async def _save_call_record(
             db.add(admission)
             db.commit()
             print(f"[Admission] Created for patient {state['patient_id']}")
-
             await broadcast_update({
                 "type":         "admission",
                 "patient_id":   state["patient_id"],
