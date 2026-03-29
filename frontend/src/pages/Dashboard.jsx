@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { getPatients, getStats, initiateCall } from '../api/client'
 import PatientCard from '../components/PatientCard'
 import AdherenceChart from '../components/AdherenceChart'
@@ -16,6 +16,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const { messages, connected } = useWebSocket()
   const navigate = useNavigate()
+  const location = useLocation()
 
   useEffect(() => {
     fetchData()
@@ -46,26 +47,46 @@ export default function Dashboard() {
     }
   }
 
-  // Filter by visit date on frontend
   const displayedPatients = dateFilter
     ? patients.filter(p => p.visit_date && p.visit_date === dateFilter)
     : patients
 
+  const navItems = [
+    { path: '/', label: '🏠 Dashboard' },
+    { path: '/simulator', label: '🎭 Simulator' },
+    { path: '/calls', label: '📞 Call History' },
+    { path: '/vaccination', label: '🍼 Vaccination' },
+    { path: '/analytics', label: '📊 Analytics' },
+    { path: '/scheduler', label: '⏰ Scheduler' },
+    { path: '/workflow', label: '⚙️ Workflow' },
+  ]
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-800">🏥 AarogyaVaani</h1>
-          <p className="text-xs text-gray-400">AI-Powered Multilingual Patient Engagement</p>
+      {/* Header + Navbar */}
+      <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-6">
+          <div>
+            <h1 className="text-lg font-bold text-gray-800">🏥 AarogyaVaani</h1>
+            <p className="text-xs text-gray-400">AI-Powered Multilingual Patient Engagement</p>
+          </div>
+          <nav className="flex items-center gap-1">
+            {navItems.map(({ path, label }) => (
+              <button
+                key={path}
+                onClick={() => navigate(path)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                  location.pathname === path
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/simulator')}
-            className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700 transition"
-          >
-            🎭 Call Simulator
-          </button>
           {connected
             ? <span className="flex items-center gap-1 text-xs text-green-600"><Wifi size={13} /> Live</span>
             : <span className="flex items-center gap-1 text-xs text-gray-400"><WifiOff size={13} /> Offline</span>
@@ -133,7 +154,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Visit date label */}
             {dateFilter && (
               <p className="text-xs text-blue-600 mb-3 font-medium">
                 Showing patients who visited on {dateFilter} — {displayedPatients.length} found
