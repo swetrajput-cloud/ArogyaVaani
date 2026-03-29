@@ -18,7 +18,10 @@ app = FastAPI(title=settings.APP_NAME)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        "https://arogya-vaani-sooty.vercel.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -26,7 +29,6 @@ app.add_middleware(
 
 app.include_router(twilio_router)
 
-# ─── WebSocket: Live Dashboard ────────────────────────────────────────────────
 @app.websocket("/ws/dashboard")
 async def dashboard_ws(websocket: WebSocket):
     await connect_client(websocket)
@@ -36,12 +38,10 @@ async def dashboard_ws(websocket: WebSocket):
     except WebSocketDisconnect:
         disconnect_client(websocket)
 
-# ─── WebSocket: Twilio Media Stream ──────────────────────────────────────────
 @app.websocket("/ws/stream/{call_sid}")
 async def media_stream_ws(websocket: WebSocket, call_sid: str):
     await handle_media_stream(websocket, call_sid)
 
-# ─── CSV Seeding ──────────────────────────────────────────────────────────────
 CSV_PATH = os.path.join(os.path.dirname(__file__), "data", "patients.csv")
 
 def safe_float(val):
@@ -144,7 +144,6 @@ def seed_patients_from_csv():
     finally:
         db.close()
 
-# ─── Patient API Routes ───────────────────────────────────────────────────────
 @app.get('/patients')
 def get_patients(
     risk_tier: Optional[str] = Query(None),
@@ -160,7 +159,6 @@ def get_patients(
         if health_camp:
             query = query.filter(Patient.health_camp_name == health_camp)
         total = query.count()
-        # Sort by visit_date newest first
         patients = query.order_by(
             Patient.visit_date.desc().nullslast(),
             Patient.created_at.desc().nullslast()
@@ -248,7 +246,6 @@ def get_stats():
     finally:
         db.close()
 
-# ─── Call Simulator ───────────────────────────────────────────────────────────
 class SimulateRequest(BaseModel):
     patient_id: int
     transcript: str
@@ -288,7 +285,6 @@ async def simulate_call(req: SimulateRequest):
     finally:
         db.close()
 
-# ─── Startup ──────────────────────────────────────────────────────────────────
 @app.on_event('startup')
 async def startup():
     create_tables()
