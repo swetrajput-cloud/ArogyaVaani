@@ -7,6 +7,7 @@ import EscalationQueue from '../components/EscalationQueue'
 import CallTranscript from '../components/CallTranscript'
 import AppointmentQueue from '../components/AppointmentQueue'
 import AdmissionQueue from '../components/AdmissionQueue'
+import ScheduledCallsPanel from '../components/ScheduledCallsPanel'
 import useWebSocket from '../hooks/useWebSocket'
 import { Users, AlertTriangle, Activity, Wifi, WifiOff } from 'lucide-react'
 
@@ -14,6 +15,7 @@ const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 export default function Dashboard() {
   const [patients, setPatients] = useState([])
+  const [allRedPatients, setAllRedPatients] = useState([])
   const [stats, setStats] = useState(null)
   const [filter, setFilter] = useState('')
   const [loading, setLoading] = useState(true)
@@ -30,12 +32,9 @@ export default function Dashboard() {
 
   useEffect(() => {
     const latest = messages[0]
-    if (latest?.type === 'appointment') {
-      fetchAppointments()
-    }
-    if (latest?.type === 'admission') {
-      fetchAdmissions()
-    }
+    if (latest?.type === 'appointment') fetchAppointments()
+    if (latest?.type === 'admission') fetchAdmissions()
+    if (latest?.risk_tier === 'RED') fetchRedPatients()
   }, [messages])
 
   const fetchData = async () => {
@@ -51,6 +50,16 @@ export default function Dashboard() {
       console.error(e)
     } finally {
       setLoading(false)
+    }
+    fetchRedPatients()
+  }
+
+  const fetchRedPatients = async () => {
+    try {
+      const res = await getPatients({ risk_tier: 'RED', limit: 120 })
+      setAllRedPatients(res.data.patients || [])
+    } catch (e) {
+      console.error(e)
     }
   }
 
@@ -78,6 +87,7 @@ export default function Dashboard() {
     try {
       await initiateCall(id)
       alert(`Call initiated for Patient #${id}`)
+      fetchRedPatients()
     } catch (e) {
       alert('Call failed — check Twilio credentials')
     }
@@ -92,28 +102,20 @@ export default function Dashboard() {
           <p className="text-xs text-gray-400">AI-Powered Multilingual Patient Engagement</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/vaccination')}
-            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 transition"
-          >
+          <button onClick={() => navigate('/vaccination')}
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 transition">
             🍼 Vaccination
           </button>
-          <button
-            onClick={() => navigate('/calls')}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
-          >
+          <button onClick={() => navigate('/calls')}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition">
             📋 Call History
           </button>
-          <button
-            onClick={() => navigate('/simulator')}
-            className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700 transition"
-          >
+          <button onClick={() => navigate('/simulator')}
+            className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700 transition">
             🎯 Call Simulator
           </button>
-          <button
-            onClick={() => navigate('/analytics')}
-            className="flex items-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-orange-600 transition"
-          >
+          <button onClick={() => navigate('/analytics')}
+            className="flex items-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-orange-600 transition">
             📊 Analytics
           </button>
           {connected
@@ -177,6 +179,7 @@ export default function Dashboard() {
           {/* Right: Live Feed */}
           <div className="space-y-4">
             <AdherenceChart stats={stats} />
+            <ScheduledCallsPanel patients={allRedPatients} onCallNow={handleCall} />
             <AdmissionQueue admissions={admissions} onRefresh={fetchAdmissions} />
             <AppointmentQueue appointments={appointments} onRefresh={fetchAppointments} />
             <EscalationQueue messages={messages} />
