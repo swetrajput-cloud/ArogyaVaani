@@ -1,49 +1,76 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional
-import sys, os, csv
-from datetime import datetime, date as dt_date
+import sys, os, csv, asyncio
+from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from config import settings
 from models.database import create_tables, SessionLocal
 from models.patient import Patient
-from call_engine.twiml_router import router as twilio_router
-from dashboard.ws_broadcaster import connect_client, disconnect_client
-from call_engine.media_stream import handle_media_stream
+from models.appointment import Appointment
+from models.admission import Admission
+from models.vaccination import VaccinationSchedule
+from models.vaccination_reminder import VaccinationReminder
 
+# ─── Routers ──────────────────────────────────────────────────────────────────
+from routers.inbound import router as inbound_router
+from routers.outbound import router as outbound_router
+from routers.patients import router as patients_router
+from routers.stats import router as stats_router
+from routers.simulate import router as simulate_router
+from routers.calls import router as calls_router
+from routers.vaccination import router as vaccination_router
+from routers.vaccination_reminder import router as vaccination_reminder_router
+from routers.analytics import router as analytics_router
+from routers.admissions import router as admissions_router
+from routers.twilio import router as twilio_router        # ← Groq conversational router
+from api.appointments import router as appointments_router
+
+# ─── WebSocket / Dashboard ────────────────────────────────────────────────────
+from dashboard.ws_broadcaster import connect_client, disconnect_client
+
+# ─── Follow-up Scheduler ──────────────────────────────────────────────────────
+from modules.followup_scheduler import run_followup_scheduler
+
+# ─── App Init ─────────────────────────────────────────────────────────────────
 app = FastAPI(title=settings.APP_NAME)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "https://arogya-vaani-sooty.vercel.app",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# ─── Include Routers ──────────────────────────────────────────────────────────
+app.include_router(inbound_router)
+app.include_router(outbound_router)
+app.include_router(patients_router)
+app.include_router(stats_router)
+app.include_router(simulate_router)
+app.include_router(calls_router)
+app.include_router(vaccination_router)
+app.include_router(vaccination_reminder_router)
 app.include_router(twilio_router)
+app.include_router(appointments_router)
+app.include_router(analytics_router)
+app.include_router(admissions_router)
 
+# ─── WebSocket: Live Dashboard ────────────────────────────────────────────────
 @app.websocket("/ws/dashboard")
 async def dashboard_ws(websocket: WebSocket):
     await connect_client(websocket)
     try:
         while True:
-            await websocket.receive_text()
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_text("pong")
     except WebSocketDisconnect:
         disconnect_client(websocket)
 
-@app.websocket("/ws/stream/{call_sid}")
-async def media_stream_ws(websocket: WebSocket, call_sid: str):
-    await handle_media_stream(websocket, call_sid)
-
-CSV_PATH = os.path.join(os.path.dirname(__file__), "data", "patients.csv")
-
+# ─── Helper Functions ─────────────────────────────────────────────────────────
 def safe_float(val):
     try:
         return float(val)
@@ -56,7 +83,10 @@ def safe_str(val):
 
 def map_risk_tier(overall_risk_category: str) -> str:
     mapping = {"Low": "GREEN", "Moderate": "AMBER", "High": "RED"}
-    return mapping.get(overall_risk_category.strip(), "GREEN")
+    try:
+        return mapping.get(overall_risk_category.strip(), "GREEN")
+    except:
+        return "GREEN"
 
 def derive_module(row: dict) -> str:
     camp = row.get("health_camp_name", "").lower()
@@ -76,16 +106,23 @@ def derive_condition(row: dict) -> str:
         parts.append("Hypertension")
     return ", ".join(parts) if parts else "General Monitoring"
 
+# ─── CSV Paths ────────────────────────────────────────────────────────────────
+CSV_PATH     = os.path.join(os.path.dirname(__file__), "data", "patients.csv")
+VAX_CSV_PATH = os.path.join(os.path.dirname(__file__), "data", "vaccination.csv")
+
+# ─── Seed: Patients ───────────────────────────────────────────────────────────
 def seed_patients_from_csv():
     if not os.path.exists(CSV_PATH):
-        print(f"[Seed] CSV not found at {CSV_PATH}, skipping.")
+        print(f"[Seed] patients.csv not found at {CSV_PATH}, skipping.")
         return
+
     db = SessionLocal()
     try:
         existing = db.query(Patient).count()
         if existing > 0:
-            print(f"[Seed] DB already has {existing} patients, skipping CSV seed.")
+            print(f"[Seed] DB already has {existing} patients, skipping.")
             return
+
         with open(CSV_PATH, newline='', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             patients = []
@@ -97,7 +134,6 @@ def seed_patients_from_csv():
                     age=None,
                     language="hindi",
                     health_camp_name=safe_str(row.get("health_camp_name")),
-                    visit_date=dt_date.today(),
                     condition=derive_condition(row),
                     module_type=derive_module(row),
                     systolic_bp=safe_float(row.get("systolic_bp", "")),
@@ -135,165 +171,75 @@ def seed_patients_from_csv():
                     caregiver_primary=False,
                 )
                 patients.append(patient)
-            db.bulk_save_objects(patients)
-            db.commit()
-            print(f"[Seed] ✅ Seeded {len(patients)} patients from CSV.")
+
+        db.bulk_save_objects(patients)
+        db.commit()
+        print(f"[Seed] ✅ Seeded {len(patients)} patients from CSV.")
     except Exception as e:
         db.rollback()
-        print(f"[Seed] ❌ CSV seed failed: {e}")
+        print(f"[Seed] ❌ Patient seed failed: {e}")
     finally:
         db.close()
 
-@app.get('/patients')
-def get_patients(
-    risk_tier: Optional[str] = Query(None),
-    health_camp: Optional[str] = Query(None),
-    limit: int = Query(50, le=120),
-    offset: int = Query(0)
-):
+# ─── Seed: Vaccination Schedule ───────────────────────────────────────────────
+def seed_vaccination_schedule():
+    if not os.path.exists(VAX_CSV_PATH):
+        print(f"[Seed] vaccination.csv not found at {VAX_CSV_PATH}, skipping.")
+        return
+
     db = SessionLocal()
     try:
-        query = db.query(Patient).filter(Patient.is_active == True)
-        if risk_tier:
-            query = query.filter(Patient.current_risk_tier == risk_tier.upper())
-        if health_camp:
-            query = query.filter(Patient.health_camp_name == health_camp)
-        total = query.count()
-        patients = query.order_by(
-            Patient.visit_date.desc().nullslast(),
-            Patient.created_at.desc().nullslast()
-        ).offset(offset).limit(limit).all()
-        return {
-            "total": total,
-            "patients": [
-                {
-                    "id": p.id,
-                    "name": p.name,
-                    "phone": p.phone,
-                    "age": p.age,
-                    "language": p.language,
-                    "health_camp_name": p.health_camp_name,
-                    "visit_date": p.visit_date.isoformat() if p.visit_date else None,
-                    "condition": p.condition,
-                    "module_type": p.module_type,
-                    "current_risk_tier": p.current_risk_tier,
-                    "heart_risk_level": p.heart_risk_level,
-                    "diabetic_risk_level": p.diabetic_risk_level,
-                    "hypertension_risk_level": p.hypertension_risk_level,
-                    "overall_risk_score": p.overall_risk_score,
-                    "bmi": p.bmi,
-                    "systolic_bp": p.systolic_bp,
-                    "diastolic_bp": p.diastolic_bp,
-                    "blood_glucose": p.blood_glucose,
-                    "created_at": p.created_at.isoformat() if p.created_at else None,
-                }
-                for p in patients
-            ]
+        existing = db.query(VaccinationSchedule).count()
+        if existing > 0:
+            print(f"[Seed] Vaccination schedule already seeded ({existing} records), skipping.")
+            return
+
+        age_to_weeks = {
+            "Birth": 0, "6 weeks": 6, "10 weeks": 10,
+            "14 weeks": 14, "9 months": 36, "12 months": 52,
         }
-    finally:
-        db.close()
 
-@app.get('/patients/{patient_id}')
-def get_patient(patient_id: int):
-    from fastapi import HTTPException
-    db = SessionLocal()
-    try:
-        p = db.query(Patient).filter(Patient.id == patient_id).first()
-        if not p:
-            raise HTTPException(status_code=404, detail="Patient not found")
-        return {
-            "id": p.id, "name": p.name, "phone": p.phone, "age": p.age,
-            "language": p.language, "health_camp_name": p.health_camp_name,
-            "visit_date": p.visit_date.isoformat() if p.visit_date else None,
-            "condition": p.condition, "module_type": p.module_type,
-            "current_risk_tier": p.current_risk_tier,
-            "systolic_bp": p.systolic_bp, "diastolic_bp": p.diastolic_bp,
-            "heart_rate": p.heart_rate, "respiratory_rate": p.respiratory_rate,
-            "oxygen_saturation": p.oxygen_saturation, "temperature": p.temperature,
-            "blood_glucose": p.blood_glucose, "height": p.height, "weight": p.weight,
-            "bmi": p.bmi, "bmi_category": p.bmi_category,
-            "waist_circumference": p.waist_circumference,
-            "heart_risk_level": p.heart_risk_level,
-            "heart_risk_total_score": p.heart_risk_total_score,
-            "diabetic_risk_level": p.diabetic_risk_level,
-            "diabetic_risk_total_score": p.diabetic_risk_total_score,
-            "hypertension_risk_level": p.hypertension_risk_level,
-            "hypertension_risk_total_score": p.hypertension_risk_total_score,
-            "overall_risk_score": p.overall_risk_score,
-            "chest_discomfort": p.chest_discomfort, "breathlessness": p.breathlessness,
-            "palpitations": p.palpitations, "fatigue_weakness": p.fatigue_weakness,
-            "dizziness_blackouts": p.dizziness_blackouts,
-            "sleep_duration": p.sleep_duration, "stress_anxiety": p.stress_anxiety,
-            "physical_inactivity": p.physical_inactivity, "diet_quality": p.diet_quality,
-            "family_history": p.family_history,
-            "caregiver_primary": p.caregiver_primary,
-            "caregiver_name": p.caregiver_name, "caregiver_phone": p.caregiver_phone,
-            "is_active": p.is_active,
-            "created_at": p.created_at.isoformat() if p.created_at else None,
-        }
-    finally:
-        db.close()
+        with open(VAX_CSV_PATH, newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            records = []
+            for row in reader:
+                age_label = row.get("Age", "").strip()
+                records.append(VaccinationSchedule(
+                    age_label=age_label,
+                    age_weeks=age_to_weeks.get(age_label),
+                    vaccine_name=row.get("Vaccine Name", "").strip(),
+                    dose=safe_str(row.get("Dose", "")),
+                    route_site=safe_str(row.get("Route/Site", "")),
+                    remarks=safe_str(row.get("Remarks", "")),
+                ))
 
-@app.get('/stats')
-def get_stats():
-    db = SessionLocal()
-    try:
-        total = db.query(Patient).count()
-        red   = db.query(Patient).filter(Patient.current_risk_tier == "RED").count()
-        amber = db.query(Patient).filter(Patient.current_risk_tier == "AMBER").count()
-        green = db.query(Patient).filter(Patient.current_risk_tier == "GREEN").count()
-        return {"total_patients": total, "red": red, "amber": amber, "green": green}
-    finally:
-        db.close()
-
-class SimulateRequest(BaseModel):
-    patient_id: int
-    transcript: str
-    language: str = "hindi"
-
-@app.post('/simulate/call')
-async def simulate_call(req: SimulateRequest):
-    from nlp.intent_extractor import extract_intent
-    from nlp.risk_scorer import compute_risk
-    from dashboard.ws_broadcaster import broadcast_update
-    db = SessionLocal()
-    try:
-        from fastapi import HTTPException
-        patient = db.query(Patient).filter(Patient.id == req.patient_id).first()
-        if not patient:
-            raise HTTPException(status_code=404, detail="Patient not found")
-        nlp_output = await extract_intent(req.transcript, req.language)
-        risk_tier, escalate, reason, keywords = compute_risk(
-            req.transcript, nlp_output, patient.overall_risk_score or 0
-        )
-        patient.current_risk_tier = risk_tier
-        patient.updated_at = datetime.utcnow()
+        db.bulk_save_objects(records)
         db.commit()
-        await broadcast_update({
-            "call_sid": f"SIM-{req.patient_id}-{int(datetime.utcnow().timestamp())}",
-            "patient_id": req.patient_id, "patient_name": patient.name,
-            "risk_tier": risk_tier, "escalate": escalate,
-            "escalation_reason": reason, "transcript": req.transcript,
-            "keywords": keywords, "nlp": nlp_output,
-        })
-        return {
-            "patient_id": req.patient_id, "patient_name": patient.name,
-            "transcript": req.transcript, "nlp": nlp_output,
-            "risk_tier": risk_tier, "escalate": escalate,
-            "escalation_reason": reason, "keywords": keywords,
-        }
+        print(f"[Seed] ✅ Seeded {len(records)} vaccination records.")
+    except Exception as e:
+        db.rollback()
+        print(f"[Seed] ❌ Vaccination seed failed: {e}")
     finally:
         db.close()
 
+# ─── Startup ──────────────────────────────────────────────────────────────────
 @app.on_event('startup')
 async def startup():
     create_tables()
     print("[Startup] Database tables created successfully")
     seed_patients_from_csv()
+    seed_vaccination_schedule()
+    asyncio.create_task(run_followup_scheduler())
+    print("[Startup] Follow-up scheduler started")
 
+# ─── Root ─────────────────────────────────────────────────────────────────────
 @app.get('/')
 def root():
-    return {"message": f"{settings.APP_NAME} backend is running", "debug": settings.DEBUG}
+    return {
+        "message": f"{settings.APP_NAME} backend is running",
+        "debug": settings.DEBUG,
+        "docs": "/docs"
+    }
 
 @app.get('/health')
 def health():
