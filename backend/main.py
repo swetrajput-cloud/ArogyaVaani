@@ -1,6 +1,6 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-import sys, os, csv
+import sys, os, csv, asyncio
 from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -30,6 +30,9 @@ from api.appointments import router as appointments_router
 # ─── WebSocket / Media Stream ─────────────────────────────────────────────────
 from dashboard.ws_broadcaster import connect_client, disconnect_client
 from call_engine.media_stream import handle_media_stream
+
+# ─── Follow-up Scheduler ──────────────────────────────────────────────────────
+from modules.followup_scheduler import run_followup_scheduler
 
 # ─── App Init ─────────────────────────────────────────────────────────────────
 app = FastAPI(title=settings.APP_NAME)
@@ -232,6 +235,8 @@ async def startup():
     print("[Startup] Database tables created successfully")
     seed_patients_from_csv()
     seed_vaccination_schedule()
+    asyncio.create_task(run_followup_scheduler())
+    print("[Startup] Follow-up scheduler started")
 
 # ─── Root ─────────────────────────────────────────────────────────────────────
 @app.get('/')

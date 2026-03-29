@@ -69,6 +69,9 @@ class Patient(Base):
     # Risk tier
     current_risk_tier = Column(String, default="GREEN")
 
+    # Follow-up tracking
+    last_called_at = Column(DateTime, nullable=True)
+
     # Metadata
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)

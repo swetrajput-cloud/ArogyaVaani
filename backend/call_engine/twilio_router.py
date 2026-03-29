@@ -359,6 +359,7 @@ async def _save_call_record(
         patient = db.query(Patient).filter(Patient.id == state["patient_id"]).first()
         if patient:
             patient.current_risk_tier = risk_tier
+            patient.last_called_at = datetime.utcnow()
             patient.updated_at = datetime.utcnow()
 
         record = CallRecord(
@@ -391,7 +392,6 @@ async def _save_call_record(
         })
         print(f"[Twilio] Saved. Patient:{state['patient_id']} Risk:{risk_tier}")
 
-        # Doctor WhatsApp alert on RED/escalated
         if escalate or risk_tier.upper() == "RED":
             send_doctor_alert(
                 patient_name=state.get("patient_name", "Unknown"),
@@ -402,7 +402,6 @@ async def _save_call_record(
                 escalation_reason=reason,
             )
 
-        # Auto-create admission request if RED
         if risk_tier.upper() == "RED":
             admission = Admission(
                 patient_id = state["patient_id"],
@@ -423,7 +422,6 @@ async def _save_call_record(
                 "reason":       reason,
             })
 
-        # Auto-create appointment if patient requested one
         if nlp_output and nlp_output.get("wants_appointment"):
             appt = Appointment(
                 patient_id = state["patient_id"],
