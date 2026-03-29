@@ -1,9 +1,9 @@
-"""
-AarogyaVaani — Human-like hospital follow-up call engine (Groq / Llama 3.3)
+﻿"""
+AarogyaVaani â€” Human-like hospital follow-up call engine (Groq / Llama 3.3)
 
 Features:
-- Greeting uses patient's REAL data (vitals, condition, camp visit) — no risk tier mentioned
-- Fully responsive — replies to everything patient says, then diverts to health
+- Greeting uses patient's REAL data (vitals, condition, camp visit) â€” no risk tier mentioned
+- Fully responsive â€” replies to everything patient says, then diverts to health
 - Mid-call language switching (patient says "Hindi mein bolo" -> switches instantly)
 - Appointment ask before every closing
 - Unlimited turns until patient says bye
@@ -37,14 +37,14 @@ _call_states: dict[str, dict] = {}
 TURNS_BY_RISK = {"RED": 6, "AMBER": 5, "GREEN": 4}
 
 
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # LANGUAGE DETECTION (mid-call switch)
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 LANGUAGE_SWITCH_PATTERNS = {
     "hindi": [
         "hindi mein", "hindi me", "hindi bol", "hindi main", "hindi mein bolo",
-        "hindi mai bolo", "hindi mai", "हिंदी में", "हिंदी मे", "हिंदी में बोलो",
+        "hindi mai bolo", "hindi mai", "à¤¹à¤¿à¤‚à¤¦à¥€ à¤®à¥‡à¤‚", "à¤¹à¤¿à¤‚à¤¦à¥€ à¤®à¥‡", "à¤¹à¤¿à¤‚à¤¦à¥€ à¤®à¥‡à¤‚ à¤¬à¥‹à¤²à¥‹",
     ],
     "english": [
         "english mein", "english me", "speak english", "in english",
@@ -53,19 +53,19 @@ LANGUAGE_SWITCH_PATTERNS = {
     ],
     "marathi": [
         "marathi mein", "marathi me", "marathi bol", "marathi madhye",
-        "marathi madhe", "marathi mein bolo", "मराठी मध्ये",
+        "marathi madhe", "marathi mein bolo", "à¤®à¤°à¤¾à¤ à¥€ à¤®à¤§à¥à¤¯à¥‡",
     ],
     "tamil": [
-        "tamil mein", "tamil la", "tamil il", "tamil bol", "தமிழில்",
+        "tamil mein", "tamil la", "tamil il", "tamil bol", "à®¤à®®à®¿à®´à®¿à®²à¯",
     ],
     "telugu": [
-        "telugu lo", "telugu mein", "telugu bol", "తెలుగులో",
+        "telugu lo", "telugu mein", "telugu bol", "à°¤à±†à°²à±à°—à±à°²à±‹",
     ],
     "gujarati": [
-        "gujarati mein", "gujarati me", "gujarati bol", "ગુજરાતીમાં",
+        "gujarati mein", "gujarati me", "gujarati bol", "àª—à«àªœàª°àª¾àª¤à«€àª®àª¾àª‚",
     ],
     "bengali": [
-        "bangla mein", "bengali mein", "bangla te", "বাংলায়",
+        "bangla mein", "bengali mein", "bangla te", "à¦¬à¦¾à¦‚à¦²à¦¾à¦¯à¦¼",
     ],
 }
 
@@ -79,17 +79,17 @@ def _detect_language_switch(text: str):
     return None
 
 
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # BYE DETECTION
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 BYE_KEYWORDS = [
-    "अलविदा", "बाय", "ठीक है धन्यवाद", "धन्यवाद", "शुक्रिया", "बस इतना ही",
-    "फिर मिलेंगे", "अब रखता हूं", "अब रखती हूं", "रखता हूं", "रखती हूं",
-    "काम है", "जाना है", "ठीक है बस", "बस",
+    "à¤…à¤²à¤µà¤¿à¤¦à¤¾", "à¤¬à¤¾à¤¯", "à¤ à¥€à¤• à¤¹à¥ˆ à¤§à¤¨à¥à¤¯à¤µà¤¾à¤¦", "à¤§à¤¨à¥à¤¯à¤µà¤¾à¤¦", "à¤¶à¥à¤•à¥à¤°à¤¿à¤¯à¤¾", "à¤¬à¤¸ à¤‡à¤¤à¤¨à¤¾ à¤¹à¥€",
+    "à¤«à¤¿à¤° à¤®à¤¿à¤²à¥‡à¤‚à¤—à¥‡", "à¤…à¤¬ à¤°à¤–à¤¤à¤¾ à¤¹à¥‚à¤‚", "à¤…à¤¬ à¤°à¤–à¤¤à¥€ à¤¹à¥‚à¤‚", "à¤°à¤–à¤¤à¤¾ à¤¹à¥‚à¤‚", "à¤°à¤–à¤¤à¥€ à¤¹à¥‚à¤‚",
+    "à¤•à¤¾à¤® à¤¹à¥ˆ", "à¤œà¤¾à¤¨à¤¾ à¤¹à¥ˆ", "à¤ à¥€à¤• à¤¹à¥ˆ à¤¬à¤¸", "à¤¬à¤¸",
     "bye", "goodbye", "thank you", "thanks", "that's all", "ok thanks",
     "i have to go", "talk later", "see you",
-    "निघतो", "निघते", "बरं",
+    "à¤¨à¤¿à¤˜à¤¤à¥‹", "à¤¨à¤¿à¤˜à¤¤à¥‡", "à¤¬à¤°à¤‚",
 ]
 
 def _patient_wants_to_end(text: str) -> bool:
@@ -99,9 +99,9 @@ def _patient_wants_to_end(text: str) -> bool:
     return any(kw in t for kw in BYE_KEYWORDS)
 
 
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Language helpers
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _gather_lang(language: str) -> str:
     return {
@@ -121,9 +121,9 @@ def _voice(language: str) -> str:
     return "Polly.Raveena" if language == "english" else "Polly.Aditi"
 
 
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Build patient context for Groq
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _build_patient_context(patient: Patient) -> str:
     lines = []
@@ -145,7 +145,7 @@ def _build_patient_context(patient: Patient) -> str:
     if patient.oxygen_saturation:
         vitals.append(f"SpO2 {patient.oxygen_saturation}%")
     if patient.temperature:
-        vitals.append(f"Temp {patient.temperature}°C")
+        vitals.append(f"Temp {patient.temperature}Â°C")
     if patient.bmi:
         vitals.append(f"BMI {round(patient.bmi, 1)} ({patient.bmi_category or ''})")
     if vitals:
@@ -191,9 +191,9 @@ def _build_patient_context(patient: Patient) -> str:
     return "\n".join(lines) if lines else "- No detailed records available yet"
 
 
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Data-aware personalized greeting
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _build_greeting(patient: Patient, language: str) -> str:
     name      = patient.name
@@ -202,62 +202,62 @@ def _build_greeting(patient: Patient, language: str) -> str:
 
     greetings = {
         "hindi": (
-            f"नमस्ते {name} जी! मैं आरोग्यवाणी से आरोग्या बोल रही हूँ। "
-            + (f"आप हमारे {camp} में आए थे — " if camp else "")
-            + (f"आपकी {condition} की देखभाल के लिए आज कॉल की है। " if condition and condition != "General Monitoring" else "आपकी सेहत का हाल जानने के लिए कॉल की है। ")
-            + "बताइए — आज आप कैसा महसूस कर रहे हैं?"
+            f"à¤¨à¤®à¤¸à¥à¤¤à¥‡ {name} à¤œà¥€! à¤®à¥ˆà¤‚ à¤†à¤°à¥‹à¤—à¥à¤¯à¤µà¤¾à¤£à¥€ à¤¸à¥‡ à¤†à¤°à¥‹à¤—à¥à¤¯à¤¾ à¤¬à¥‹à¤² à¤°à¤¹à¥€ à¤¹à¥‚à¤à¥¤ "
+            + (f"à¤†à¤ª à¤¹à¤®à¤¾à¤°à¥‡ {camp} à¤®à¥‡à¤‚ à¤†à¤ à¤¥à¥‡ â€” " if camp else "")
+            + (f"à¤†à¤ªà¤•à¥€ {condition} à¤•à¥€ à¤¦à¥‡à¤–à¤­à¤¾à¤² à¤•à¥‡ à¤²à¤¿à¤ à¤†à¤œ à¤•à¥‰à¤² à¤•à¥€ à¤¹à¥ˆà¥¤ " if condition and condition != "General Monitoring" else "à¤†à¤ªà¤•à¥€ à¤¸à¥‡à¤¹à¤¤ à¤•à¤¾ à¤¹à¤¾à¤² à¤œà¤¾à¤¨à¤¨à¥‡ à¤•à¥‡ à¤²à¤¿à¤ à¤•à¥‰à¤² à¤•à¥€ à¤¹à¥ˆà¥¤ ")
+            + "à¤¬à¤¤à¤¾à¤‡à¤ â€” à¤†à¤œ à¤†à¤ª à¤•à¥ˆà¤¸à¤¾ à¤®à¤¹à¤¸à¥‚à¤¸ à¤•à¤° à¤°à¤¹à¥‡ à¤¹à¥ˆà¤‚?"
         ),
         "english": (
             f"Hello {name}! This is Aarogya calling from AarogyaVaani. "
-            + (f"You visited our {camp} — " if camp else "")
+            + (f"You visited our {camp} â€” " if camp else "")
             + (f"I'm calling to follow up on your {condition}. " if condition and condition != "General Monitoring" else "I'm calling to check on your health today. ")
             + "How are you feeling?"
         ),
         "marathi": (
-            f"नमस्कार {name} जी! मी आरोग्यवाणीमधून आरोग्या बोलतेय। "
-            + (f"तुम्ही आमच्या {camp} ला आला होतात — " if camp else "")
-            + "आज तुम्ही कसे आहात?"
+            f"à¤¨à¤®à¤¸à¥à¤•à¤¾à¤° {name} à¤œà¥€! à¤®à¥€ à¤†à¤°à¥‹à¤—à¥à¤¯à¤µà¤¾à¤£à¥€à¤®à¤§à¥‚à¤¨ à¤†à¤°à¥‹à¤—à¥à¤¯à¤¾ à¤¬à¥‹à¤²à¤¤à¥‡à¤¯à¥¤ "
+            + (f"à¤¤à¥à¤®à¥à¤¹à¥€ à¤†à¤®à¤šà¥à¤¯à¤¾ {camp} à¤²à¤¾ à¤†à¤²à¤¾ à¤¹à¥‹à¤¤à¤¾à¤¤ â€” " if camp else "")
+            + "à¤†à¤œ à¤¤à¥à¤®à¥à¤¹à¥€ à¤•à¤¸à¥‡ à¤†à¤¹à¤¾à¤¤?"
         ),
         "tamil": (
-            f"வணக்கம் {name}! நான் ஆரோக்யவாணியிலிருந்து ஆரோக்யா பேசுகிறேன். "
-            + "இன்று நீங்கள் எப்படி இருக்கிறீர்கள்?"
+            f"à®µà®£à®•à¯à®•à®®à¯ {name}! à®¨à®¾à®©à¯ à®†à®°à¯‹à®•à¯à®¯à®µà®¾à®£à®¿à®¯à®¿à®²à®¿à®°à¯à®¨à¯à®¤à¯ à®†à®°à¯‹à®•à¯à®¯à®¾ à®ªà¯‡à®šà¯à®•à®¿à®±à¯‡à®©à¯. "
+            + "à®‡à®©à¯à®±à¯ à®¨à¯€à®™à¯à®•à®³à¯ à®Žà®ªà¯à®ªà®Ÿà®¿ à®‡à®°à¯à®•à¯à®•à®¿à®±à¯€à®°à¯à®•à®³à¯?"
         ),
         "telugu": (
-            f"నమస్కారం {name} గారు! నేను ఆరోగ్యవాణి నుండి మాట్లాడుతున్నాను. "
-            + "మీరు ఈరోజు ఎలా ఉన్నారు?"
+            f"à°¨à°®à°¸à±à°•à°¾à°°à°‚ {name} à°—à°¾à°°à±! à°¨à±‡à°¨à± à°†à°°à±‹à°—à±à°¯à°µà°¾à°£à°¿ à°¨à±à°‚à°¡à°¿ à°®à°¾à°Ÿà±à°²à°¾à°¡à±à°¤à±à°¨à±à°¨à°¾à°¨à±. "
+            + "à°®à±€à°°à± à°ˆà°°à±‹à°œà± à°Žà°²à°¾ à°‰à°¨à±à°¨à°¾à°°à±?"
         ),
         "gujarati": (
-            f"નમસ્તે {name} જી! હું આરોગ્યવાણીથી બોલી રહી છું. "
-            + "આજે તમે કેવા અનુભવો છો?"
+            f"àª¨àª®àª¸à«àª¤à«‡ {name} àªœà«€! àª¹à«àª‚ àª†àª°à«‹àª—à«àª¯àªµàª¾àª£à«€àª¥à«€ àª¬à«‹àª²à«€ àª°àª¹à«€ àª›à«àª‚. "
+            + "àª†àªœà«‡ àª¤àª®à«‡ àª•à«‡àªµàª¾ àª…àª¨à«àª­àªµà«‹ àª›à«‹?"
         ),
         "bengali": (
-            f"নমস্কার {name} জি! আমি আরোগ্যবাণী থেকে বলছি। "
-            + "আজ আপনি কেমন অনুভব করছেন?"
+            f"à¦¨à¦®à¦¸à§à¦•à¦¾à¦° {name} à¦œà¦¿! à¦†à¦®à¦¿ à¦†à¦°à§‹à¦—à§à¦¯à¦¬à¦¾à¦£à§€ à¦¥à§‡à¦•à§‡ à¦¬à¦²à¦›à¦¿à¥¤ "
+            + "à¦†à¦œ à¦†à¦ªà¦¨à¦¿ à¦•à§‡à¦®à¦¨ à¦…à¦¨à§à¦­à¦¬ à¦•à¦°à¦›à§‡à¦¨?"
         ),
     }
     return greetings.get(language, greetings["hindi"])
 
 
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Language switch acknowledgement
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _language_switch_ack(new_language: str, patient_name: str) -> str:
     acks = {
-        "hindi":    f"बिल्कुल {patient_name} जी, अब हम हिंदी में बात करते हैं। तो बताइए, आप कैसा महसूस कर रहे हैं?",
+        "hindi":    f"à¤¬à¤¿à¤²à¥à¤•à¥à¤² {patient_name} à¤œà¥€, à¤…à¤¬ à¤¹à¤® à¤¹à¤¿à¤‚à¤¦à¥€ à¤®à¥‡à¤‚ à¤¬à¤¾à¤¤ à¤•à¤°à¤¤à¥‡ à¤¹à¥ˆà¤‚à¥¤ à¤¤à¥‹ à¤¬à¤¤à¤¾à¤‡à¤, à¤†à¤ª à¤•à¥ˆà¤¸à¤¾ à¤®à¤¹à¤¸à¥‚à¤¸ à¤•à¤° à¤°à¤¹à¥‡ à¤¹à¥ˆà¤‚?",
         "english":  f"Of course {patient_name}, let's switch to English. So tell me, how are you feeling?",
-        "marathi":  f"नक्की {patient_name} जी, आता मराठीत बोलूया. सांगा, तुम्ही कसे आहात?",
-        "tamil":    f"சரி {patient_name}, இப்போது தமிழில் பேசலாம். சொல்லுங்கள், நீங்கள் எப்படி இருக்கிறீர்கள்?",
-        "telugu":   f"సరే {patient_name}, ఇప్పుడు తెలుగులో మాట్లాడుకుందాం. మీరు ఎలా ఉన్నారు?",
-        "gujarati": f"જરૂર {patient_name} જી, હવે ગુજરાતીમાં વાત કરીએ. કહો, તમે કેવા છો?",
-        "bengali":  f"অবশ্যই {patient_name} জি, এখন বাংলায় কথা বলি। বলুন, আপনি কেমন আছেন?",
+        "marathi":  f"à¤¨à¤•à¥à¤•à¥€ {patient_name} à¤œà¥€, à¤†à¤¤à¤¾ à¤®à¤°à¤¾à¤ à¥€à¤¤ à¤¬à¥‹à¤²à¥‚à¤¯à¤¾. à¤¸à¤¾à¤‚à¤—à¤¾, à¤¤à¥à¤®à¥à¤¹à¥€ à¤•à¤¸à¥‡ à¤†à¤¹à¤¾à¤¤?",
+        "tamil":    f"à®šà®°à®¿ {patient_name}, à®‡à®ªà¯à®ªà¯‹à®¤à¯ à®¤à®®à®¿à®´à®¿à®²à¯ à®ªà¯‡à®šà®²à®¾à®®à¯. à®šà¯Šà®²à¯à®²à¯à®™à¯à®•à®³à¯, à®¨à¯€à®™à¯à®•à®³à¯ à®Žà®ªà¯à®ªà®Ÿà®¿ à®‡à®°à¯à®•à¯à®•à®¿à®±à¯€à®°à¯à®•à®³à¯?",
+        "telugu":   f"à°¸à°°à±‡ {patient_name}, à°‡à°ªà±à°ªà±à°¡à± à°¤à±†à°²à±à°—à±à°²à±‹ à°®à°¾à°Ÿà±à°²à°¾à°¡à±à°•à±à°‚à°¦à°¾à°‚. à°®à±€à°°à± à°Žà°²à°¾ à°‰à°¨à±à°¨à°¾à°°à±?",
+        "gujarati": f"àªœàª°à«‚àª° {patient_name} àªœà«€, àª¹àªµà«‡ àª—à«àªœàª°àª¾àª¤à«€àª®àª¾àª‚ àªµàª¾àª¤ àª•àª°à«€àª. àª•àª¹à«‹, àª¤àª®à«‡ àª•à«‡àªµàª¾ àª›à«‹?",
+        "bengali":  f"à¦…à¦¬à¦¶à§à¦¯à¦‡ {patient_name} à¦œà¦¿, à¦à¦–à¦¨ à¦¬à¦¾à¦‚à¦²à¦¾à¦¯à¦¼ à¦•à¦¥à¦¾ à¦¬à¦²à¦¿à¥¤ à¦¬à¦²à§à¦¨, à¦†à¦ªà¦¨à¦¿ à¦•à§‡à¦®à¦¨ à¦†à¦›à§‡à¦¨?",
     }
     return acks.get(new_language, acks["hindi"])
 
 
-# ─────────────────────────────────────────────
-# Groq AI — main brain
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Groq AI â€” main brain
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async def _groq_respond(
     patient_name: str,
@@ -285,7 +285,7 @@ async def _groq_respond(
     custom_note_instruction = ""
     if custom_note and not closing:
         custom_note_instruction = f"""
-SPECIAL INSTRUCTION: At a natural point in the conversation, mention this to the patient warmly and casually — like a caring friend, NOT an announcement:
+SPECIAL INSTRUCTION: At a natural point in the conversation, mention this to the patient warmly and casually â€” like a caring friend, NOT an announcement:
 \"{custom_note}\"
 Mention it ONCE only. Weave it in naturally.
 """
@@ -303,8 +303,8 @@ The patient is ending the call OR the health check is complete.
 {appt_line}
 Rules:
 - FIRST reply warmly to exactly what the patient just said
-- If they said YES to appointment — confirm it warmly, say the hospital will contact them soon
-- If they said NO to appointment — that's fine, wish them well
+- If they said YES to appointment â€” confirm it warmly, say the hospital will contact them soon
+- If they said NO to appointment â€” that's fine, wish them well
 - Give a warm, human goodbye
 - Tell them their health records are safely updated with the hospital
 - Say Aarogya is always here if they need anything
@@ -314,30 +314,30 @@ Rules:
         mode_instruction = """
 All health questions are done. Now chat naturally like a warm caring friend.
 Rules:
-- ALWAYS respond to what the patient said first — show real interest and warmth
+- ALWAYS respond to what the patient said first â€” show real interest and warmth
 - Ask casual friendly follow-up questions about their day, family, or whatever they brought up
-- If the patient raises any health concern — address it warmly and follow up
+- If the patient raises any health concern â€” address it warmly and follow up
 - Keep it light and human
-- Do NOT hang up — keep going until they say bye
+- Do NOT hang up â€” keep going until they say bye
 """
     else:
         mode_instruction = """
 You are conducting a hospital follow-up health check call.
 Rules:
-- ALWAYS respond to what the patient said FIRST — empathy and warmth before anything else
-- If they share something personal (family, feelings, problems) — engage genuinely, then naturally steer back to health
+- ALWAYS respond to what the patient said FIRST â€” empathy and warmth before anything else
+- If they share something personal (family, feelings, problems) â€” engage genuinely, then naturally steer back to health
 - Ask ONE focused health question per turn
 - Use the patient's data (vitals, condition, symptoms, camp visit) to ask SPECIFIC relevant questions:
-  * If they have diabetes data → ask about sugar levels, diet, medication adherence
-  * If they have BP data → ask about headaches, dizziness, salt intake
-  * If they visited a camp → ask how they felt after the camp, any changes since
-  * If symptoms were reported → ask if those symptoms have improved or are still there
-- Sound like a hospital nurse who genuinely KNOWS this patient — not a generic script
+  * If they have diabetes data â†’ ask about sugar levels, diet, medication adherence
+  * If they have BP data â†’ ask about headaches, dizziness, salt intake
+  * If they visited a camp â†’ ask how they felt after the camp, any changes since
+  * If symptoms were reported â†’ ask if those symptoms have improved or are still there
+- Sound like a hospital nurse who genuinely KNOWS this patient â€” not a generic script
 - Do NOT end the call yet
 - NEVER mention risk tier, risk score, or RED/AMBER/GREEN to the patient
 """
 
-    system = f"""You are Aarogya — a warm, caring hospital health assistant calling patients for AarogyaVaani, a rural India hospital follow-up service.
+    system = f"""You are Aarogya â€” a warm, caring hospital health assistant calling patients for AarogyaVaani, a rural India hospital follow-up service.
 
 PATIENT INFORMATION (use this to personalize every response):
 - Name: {patient_name}
@@ -346,19 +346,19 @@ PATIENT INFORMATION (use this to personalize every response):
 
 YOUR PERSONA:
 - You are like a hospital nurse who genuinely knows and cares about this patient
-- You have their medical records — reference them naturally so the patient feels seen and cared for
-- Sound human, warm, and personal — NOT robotic or scripted
-- React to EVERYTHING the patient says — then guide conversation back to health naturally
-- Use the patient's name occasionally — it makes it personal
-- If patient mentions pain, worry, or distress — show REAL concern first, then ask more
-- Keep responses to 2-3 SHORT sentences MAX — this is a phone call
+- You have their medical records â€” reference them naturally so the patient feels seen and cared for
+- Sound human, warm, and personal â€” NOT robotic or scripted
+- React to EVERYTHING the patient says â€” then guide conversation back to health naturally
+- Use the patient's name occasionally â€” it makes it personal
+- If patient mentions pain, worry, or distress â€” show REAL concern first, then ask more
+- Keep responses to 2-3 SHORT sentences MAX â€” this is a phone call
 - Never use bullet points, lists, or medical jargon
-- Never say you are an AI — you are Aarogya, their hospital health friend
+- Never say you are an AI â€” you are Aarogya, their hospital health friend
 - NEVER mention risk tier (RED/AMBER/GREEN) or risk scores to the patient ever
 
 LANGUAGE:
 {lang_instruction}
-If the patient asks to switch language mid-call — you have already switched, continue in the new language.
+If the patient asks to switch language mid-call â€” you have already switched, continue in the new language.
 
 {custom_note_instruction}
 
@@ -396,16 +396,16 @@ Output ONLY the spoken words. No stage directions. No labels. No extra formattin
     except Exception as e:
         print(f"[Groq] Error: {e}")
         fallbacks = {
-            "hindi":   f"{patient_name} जी, क्षमा करें। आप कैसा महसूस कर रहे हैं?",
+            "hindi":   f"{patient_name} à¤œà¥€, à¤•à¥à¤·à¤®à¤¾ à¤•à¤°à¥‡à¤‚à¥¤ à¤†à¤ª à¤•à¥ˆà¤¸à¤¾ à¤®à¤¹à¤¸à¥‚à¤¸ à¤•à¤° à¤°à¤¹à¥‡ à¤¹à¥ˆà¤‚?",
             "english": f"Sorry {patient_name}, could you say that again?",
-            "marathi": f"{patient_name} जी, माफ करा. तुम्ही कसे आहात?",
+            "marathi": f"{patient_name} à¤œà¥€, à¤®à¤¾à¤« à¤•à¤°à¤¾. à¤¤à¥à¤®à¥à¤¹à¥€ à¤•à¤¸à¥‡ à¤†à¤¹à¤¾à¤¤?",
         }
         return fallbacks.get(language, fallbacks["hindi"])
 
 
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # TwiML helpers
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _make_gather(text: str, action_url: str, language: str) -> str:
     response = VoiceResponse()
@@ -422,14 +422,14 @@ def _make_gather(text: str, action_url: str, language: str) -> str:
     response.append(gather)
 
     nudge = {
-        "hindi":    "क्या आप वहाँ हैं? कृपया बोलें।",
+        "hindi":    "à¤•à¥à¤¯à¤¾ à¤†à¤ª à¤µà¤¹à¤¾à¤ à¤¹à¥ˆà¤‚? à¤•à¥ƒà¤ªà¤¯à¤¾ à¤¬à¥‹à¤²à¥‡à¤‚à¥¤",
         "english":  "Are you there? Please go ahead.",
-        "marathi":  "तुम्ही तिथे आहात का? कृपया बोला.",
-        "tamil":    "நீங்கள் இங்கே இருக்கிறீர்களா?",
-        "telugu":   "మీరు అక్కడ ఉన్నారా?",
-        "gujarati": "શું તમે ત્યાં છો?",
-        "bengali":  "আপনি কি সেখানে আছেন?",
-    }.get(language, "क्या आप वहाँ हैं?")
+        "marathi":  "à¤¤à¥à¤®à¥à¤¹à¥€ à¤¤à¤¿à¤¥à¥‡ à¤†à¤¹à¤¾à¤¤ à¤•à¤¾? à¤•à¥ƒà¤ªà¤¯à¤¾ à¤¬à¥‹à¤²à¤¾.",
+        "tamil":    "à®¨à¯€à®™à¯à®•à®³à¯ à®‡à®™à¯à®•à¯‡ à®‡à®°à¯à®•à¯à®•à®¿à®±à¯€à®°à¯à®•à®³à®¾?",
+        "telugu":   "à°®à±€à°°à± à°…à°•à±à°•à°¡ à°‰à°¨à±à°¨à°¾à°°à°¾?",
+        "gujarati": "àª¶à«àª‚ àª¤àª®à«‡ àª¤à«àª¯àª¾àª‚ àª›à«‹?",
+        "bengali":  "à¦†à¦ªà¦¨à¦¿ à¦•à¦¿ à¦¸à§‡à¦–à¦¾à¦¨à§‡ à¦†à¦›à§‡à¦¨?",
+    }.get(language, "à¤•à¥à¤¯à¤¾ à¤†à¤ª à¤µà¤¹à¤¾à¤ à¤¹à¥ˆà¤‚?")
     response.say(nudge, language=_say_lang(language), voice=_voice(language))
     response.hangup()
     return str(response)
@@ -442,9 +442,9 @@ def _make_say_and_hangup(text: str, language: str) -> str:
     return str(response)
 
 
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # WEBHOOK 1: Call answered
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.post("/answered")
 async def call_answered(
@@ -469,7 +469,7 @@ async def call_answered(
 
         if not patient:
             resp = VoiceResponse()
-            resp.say("क्षमा करें, आपका रिकॉर्ड नहीं मिला। धन्यवाद।", language="hi-IN", voice="Polly.Aditi")
+            resp.say("à¤•à¥à¤·à¤®à¤¾ à¤•à¤°à¥‡à¤‚, à¤†à¤ªà¤•à¤¾ à¤°à¤¿à¤•à¥‰à¤°à¥à¤¡ à¤¨à¤¹à¥€à¤‚ à¤®à¤¿à¤²à¤¾à¥¤ à¤§à¤¨à¥à¤¯à¤µà¤¾à¤¦à¥¤", language="hi-IN", voice="Polly.Aditi")
             resp.hangup()
             return Response(content=str(resp), media_type="application/xml")
 
@@ -509,9 +509,9 @@ async def call_answered(
     return Response(content=twiml, media_type="application/xml")
 
 
-# ─────────────────────────────────────────────
-# WEBHOOK 2: Patient spoke — generate response
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# WEBHOOK 2: Patient spoke â€” generate response
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.post("/conversation")
 async def conversation_turn(
@@ -525,7 +525,7 @@ async def conversation_turn(
 
     if not state:
         resp = VoiceResponse()
-        resp.say("सत्र समाप्त हो गया। धन्यवाद।", language="hi-IN", voice="Polly.Aditi")
+        resp.say("à¤¸à¤¤à¥à¤° à¤¸à¤®à¤¾à¤ªà¥à¤¤ à¤¹à¥‹ à¤—à¤¯à¤¾à¥¤ à¤§à¤¨à¥à¤¯à¤µà¤¾à¤¦à¥¤", language="hi-IN", voice="Polly.Aditi")
         resp.hangup()
         return Response(content=str(resp), media_type="application/xml")
 
@@ -538,10 +538,10 @@ async def conversation_turn(
 
     print(f"[Twilio] Turn {turn_number + 1} | Lang:{language} | Health done:{health_done} | Said: '{patient_said}'")
 
-    # ── Mid-call language switch ──
+    # â”€â”€ Mid-call language switch â”€â”€
     new_lang = _detect_language_switch(patient_said)
     if new_lang and new_lang != language:
-        print(f"[Twilio] Language switch: {language} → {new_lang}")
+        print(f"[Twilio] Language switch: {language} â†’ {new_lang}")
         state["language"] = new_lang
         language = new_lang
         ack_text = _language_switch_ack(new_lang, state["patient_name"])
@@ -613,7 +613,7 @@ async def conversation_turn(
     state["history"].append(    {"role": "assistant", "content": ai_response})
     state["turn_number"] += 1
 
-    # ── Closing — save record and hang up ──
+    # â”€â”€ Closing â€” save record and hang up â”€â”€
     if closing:
         full_transcript = " | ".join(state["transcript_parts"])
         nlp_output = {}
@@ -632,8 +632,8 @@ async def conversation_turn(
 
         # Auto-detect appointment request from transcript
         appt_keywords = [
-            "appointment", "अपॉइंटमेंट", "हाँ", "yes", "doctor se milna",
-            "milna hai", "dikhana hai", "मिलना है", "दिखाना है", "हाँ बुक करो", "हां",
+            "appointment", "à¤…à¤ªà¥‰à¤‡à¤‚à¤Ÿà¤®à¥‡à¤‚à¤Ÿ", "à¤¹à¤¾à¤", "yes", "doctor se milna",
+            "milna hai", "dikhana hai", "à¤®à¤¿à¤²à¤¨à¤¾ à¤¹à¥ˆ", "à¤¦à¤¿à¤–à¤¾à¤¨à¤¾ à¤¹à¥ˆ", "à¤¹à¤¾à¤ à¤¬à¥à¤• à¤•à¤°à¥‹", "à¤¹à¤¾à¤‚",
         ]
         if any(kw in full_transcript.lower() for kw in appt_keywords):
             if nlp_output is not None:
@@ -649,9 +649,9 @@ async def conversation_turn(
     return Response(content=twiml, media_type="application/xml")
 
 
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # WEBHOOK 3: Call status (cleanup)
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.post("/status")
 async def call_status(
@@ -661,7 +661,7 @@ async def call_status(
     CallDuration: str = Form(default="0"),
 ):
     call_sid = CallSid or request.query_params.get("CallSid", "")
-    print(f"[Twilio] Status: {call_sid} → {CallStatus} ({CallDuration}s)")
+    print(f"[Twilio] Status: {call_sid} â†’ {CallStatus} ({CallDuration}s)")
 
     state = _call_states.get(call_sid)
     if state and not state.get("record_saved") and CallStatus in ("no-answer", "busy", "failed", "completed"):
@@ -671,20 +671,20 @@ async def call_status(
     return {"status": "ok"}
 
 
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Vaccination reminder TwiML (unchanged)
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.post("/vaccination-reminder-twiml")
 async def vaccination_reminder_twiml(request: Request):
-    vaccine = request.query_params.get("vaccine", "टीका")
-    due     = request.query_params.get("due", "अगले सप्ताह")
+    vaccine = request.query_params.get("vaccine", "à¤Ÿà¥€à¤•à¤¾")
+    due     = request.query_params.get("due", "à¤…à¤—à¤²à¥‡ à¤¸à¤ªà¥à¤¤à¤¾à¤¹")
 
     response = VoiceResponse()
     response.say(
-        f"नमस्ते! आरोग्यवाणी से एक महत्वपूर्ण सूचना। "
-        f"आपके बच्चे का {vaccine} का टीका {due} को लगवाना है। "
-        f"कृपया अपने नजदीकी स्वास्थ्य केंद्र में जाएं। धन्यवाद।",
+        f"à¤¨à¤®à¤¸à¥à¤¤à¥‡! à¤†à¤°à¥‹à¤—à¥à¤¯à¤µà¤¾à¤£à¥€ à¤¸à¥‡ à¤à¤• à¤®à¤¹à¤¤à¥à¤µà¤ªà¥‚à¤°à¥à¤£ à¤¸à¥‚à¤šà¤¨à¤¾à¥¤ "
+        f"à¤†à¤ªà¤•à¥‡ à¤¬à¤šà¥à¤šà¥‡ à¤•à¤¾ {vaccine} à¤•à¤¾ à¤Ÿà¥€à¤•à¤¾ {due} à¤•à¥‹ à¤²à¤—à¤µà¤¾à¤¨à¤¾ à¤¹à¥ˆà¥¤ "
+        f"à¤•à¥ƒà¤ªà¤¯à¤¾ à¤…à¤ªà¤¨à¥‡ à¤¨à¤œà¤¦à¥€à¤•à¥€ à¤¸à¥à¤µà¤¾à¤¸à¥à¤¥à¥à¤¯ à¤•à¥‡à¤‚à¤¦à¥à¤° à¤®à¥‡à¤‚ à¤œà¤¾à¤à¤‚à¥¤ à¤§à¤¨à¥à¤¯à¤µà¤¾à¤¦à¥¤",
         language="hi-IN", voice="Polly.Aditi",
     )
     response.hangup()
@@ -703,9 +703,9 @@ async def vaccination_call_status(request: Request):
     return {"ok": True}
 
 
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Save call record
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async def _save_call_record(
     call_sid, state, risk_tier, escalate, reason,
@@ -798,7 +798,7 @@ async def _save_call_record(
                 _send_whatsapp(
                     to_phone = settings.DOCTOR_PHONE,
                     message  = (
-                        f"📅 *नई अपॉइंटमेंट रिक्वेस्ट*\n"
+                        f"ðŸ“… *à¤¨à¤ˆ à¤…à¤ªà¥‰à¤‡à¤‚à¤Ÿà¤®à¥‡à¤‚à¤Ÿ à¤°à¤¿à¤•à¥à¤µà¥‡à¤¸à¥à¤Ÿ*\n"
                         f"*Patient:* {state.get('patient_name')}\n"
                         f"*Phone:* {state.get('patient_phone')}\n"
                         f"*Condition:* {state.get('condition')}\n"
@@ -818,9 +818,3 @@ async def _save_call_record(
         print(f"[Twilio] DB error: {e}")
     finally:
         db.close()
-
-Only file to replace: `backend/routers/twilio.py`
-
-git add .
-git commit -m "Data-aware greeting, mid-call language switch, appointment ask at close"
-git push
