@@ -24,12 +24,11 @@ from routers.vaccination import router as vaccination_router
 from routers.vaccination_reminder import router as vaccination_reminder_router
 from routers.analytics import router as analytics_router
 from routers.admissions import router as admissions_router
-from call_engine.twilio_router import router as twilio_router
+from routers.twilio import router as twilio_router        # ← Groq conversational router
 from api.appointments import router as appointments_router
 
-# ─── WebSocket / Media Stream ─────────────────────────────────────────────────
+# ─── WebSocket / Dashboard ────────────────────────────────────────────────────
 from dashboard.ws_broadcaster import connect_client, disconnect_client
-from call_engine.media_stream import handle_media_stream
 
 # ─── Follow-up Scheduler ──────────────────────────────────────────────────────
 from modules.followup_scheduler import run_followup_scheduler
@@ -70,11 +69,6 @@ async def dashboard_ws(websocket: WebSocket):
                 await websocket.send_text("pong")
     except WebSocketDisconnect:
         disconnect_client(websocket)
-
-# ─── WebSocket: Media Stream ──────────────────────────────────────────────────
-@app.websocket("/ws/stream/{call_sid}")
-async def media_stream_ws(websocket: WebSocket, call_sid: str):
-    await handle_media_stream(websocket, call_sid)
 
 # ─── Helper Functions ─────────────────────────────────────────────────────────
 def safe_float(val):
