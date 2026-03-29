@@ -6,6 +6,7 @@ import CallSimulator from './pages/CallSimulator'
 import CallHistory from './pages/CallHistory'
 import VaccinationPage from './pages/VaccinationPage'
 import Analytics from './pages/Analytics'
+import SchedulerPage from './pages/SchedulerPage'
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
         <Route path="/calls"         element={<CallHistory />} />
         <Route path="/vaccination"   element={<VaccinationPage />} />
         <Route path="/analytics"     element={<Analytics />} />
+        <Route path="/scheduler"     element={<SchedulerPage />} />
       </Routes>
     </BrowserRouter>
   )

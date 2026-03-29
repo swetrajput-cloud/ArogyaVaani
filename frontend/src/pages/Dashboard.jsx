@@ -114,6 +114,10 @@ export default function Dashboard() {
             className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700 transition">
             🎯 Call Simulator
           </button>
+          <button onClick={() => navigate('/scheduler')}
+  className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 transition">
+  📅 Scheduler
+</button>
           <button onClick={() => navigate('/analytics')}
             className="flex items-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-orange-600 transition">
             📊 Analytics
