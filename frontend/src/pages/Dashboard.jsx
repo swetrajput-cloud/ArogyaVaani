@@ -5,37 +5,21 @@ import PatientCard from '../components/PatientCard'
 import AdherenceChart from '../components/AdherenceChart'
 import EscalationQueue from '../components/EscalationQueue'
 import CallTranscript from '../components/CallTranscript'
-import AppointmentQueue from '../components/AppointmentQueue'
-import AdmissionQueue from '../components/AdmissionQueue'
-import ScheduledCallsPanel from '../components/ScheduledCallsPanel'
 import useWebSocket from '../hooks/useWebSocket'
-import { Users, AlertTriangle, Activity, Wifi, WifiOff } from 'lucide-react'
-
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+import { Users, AlertTriangle, Activity, Wifi, WifiOff, Calendar } from 'lucide-react'
 
 export default function Dashboard() {
   const [patients, setPatients] = useState([])
-  const [allRedPatients, setAllRedPatients] = useState([])
   const [stats, setStats] = useState(null)
   const [filter, setFilter] = useState('')
+  const [dateFilter, setDateFilter] = useState('')
   const [loading, setLoading] = useState(true)
-  const [appointments, setAppointments] = useState([])
-  const [admissions, setAdmissions] = useState([])
   const { messages, connected } = useWebSocket()
   const navigate = useNavigate()
 
   useEffect(() => {
     fetchData()
-    fetchAppointments()
-    fetchAdmissions()
   }, [filter])
-
-  useEffect(() => {
-    const latest = messages[0]
-    if (latest?.type === 'appointment') fetchAppointments()
-    if (latest?.type === 'admission') fetchAdmissions()
-    if (latest?.risk_tier === 'RED') fetchRedPatients()
-  }, [messages])
 
   const fetchData = async () => {
     setLoading(true)
@@ -51,47 +35,21 @@ export default function Dashboard() {
     } finally {
       setLoading(false)
     }
-    fetchRedPatients()
-  }
-
-  const fetchRedPatients = async () => {
-    try {
-      const res = await getPatients({ risk_tier: 'RED', limit: 120 })
-      setAllRedPatients(res.data.patients || [])
-    } catch (e) {
-      console.error(e)
-    }
-  }
-
-  const fetchAppointments = async () => {
-    try {
-      const res = await fetch(`${BASE}/appointments`)
-      const data = await res.json()
-      setAppointments(data.appointments || [])
-    } catch (e) {
-      console.error(e)
-    }
-  }
-
-  const fetchAdmissions = async () => {
-    try {
-      const res = await fetch(`${BASE}/admissions`)
-      const data = await res.json()
-      setAdmissions(data.admissions || [])
-    } catch (e) {
-      console.error(e)
-    }
   }
 
   const handleCall = async (id) => {
     try {
       await initiateCall(id)
       alert(`Call initiated for Patient #${id}`)
-      fetchRedPatients()
     } catch (e) {
       alert('Call failed — check Twilio credentials')
     }
   }
+
+  // Filter by visit date on frontend
+  const displayedPatients = dateFilter
+    ? patients.filter(p => p.visit_date && p.visit_date === dateFilter)
+    : patients
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -102,25 +60,11 @@ export default function Dashboard() {
           <p className="text-xs text-gray-400">AI-Powered Multilingual Patient Engagement</p>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/vaccination')}
-            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 transition">
-            🍼 Vaccination
-          </button>
-          <button onClick={() => navigate('/calls')}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition">
-            📋 Call History
-          </button>
-          <button onClick={() => navigate('/simulator')}
-            className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700 transition">
-            🎯 Call Simulator
-          </button>
-          <button onClick={() => navigate('/scheduler')}
-  className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 transition">
-  📅 Scheduler
-</button>
-          <button onClick={() => navigate('/analytics')}
-            className="flex items-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-orange-600 transition">
-            📊 Analytics
+          <button
+            onClick={() => navigate('/simulator')}
+            className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700 transition"
+          >
+            🎭 Call Simulator
           </button>
           {connected
             ? <span className="flex items-center gap-1 text-xs text-green-600"><Wifi size={13} /> Live</span>
@@ -134,10 +78,10 @@ export default function Dashboard() {
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             {[
-              { label: 'Total Patients', value: stats.total_patients, icon: <Users size={18} />,        color: 'text-blue-600 bg-blue-50'    },
-              { label: 'High Risk',      value: stats.red,            icon: <AlertTriangle size={18} />, color: 'text-red-600 bg-red-50'      },
-              { label: 'Moderate',       value: stats.amber,          icon: <Activity size={18} />,      color: 'text-yellow-600 bg-yellow-50'},
-              { label: 'Low Risk',       value: stats.green,          icon: <Activity size={18} />,      color: 'text-green-600 bg-green-50'  },
+              { label: 'Total Patients', value: stats.total_patients, icon: <Users size={18} />, color: 'text-blue-600 bg-blue-50' },
+              { label: 'High Risk', value: stats.red, icon: <AlertTriangle size={18} />, color: 'text-red-600 bg-red-50' },
+              { label: 'Moderate', value: stats.amber, icon: <Activity size={18} />, color: 'text-yellow-600 bg-yellow-50' },
+              { label: 'Low Risk', value: stats.green, icon: <Activity size={18} />, color: 'text-green-600 bg-green-50' },
             ].map((s) => (
               <div key={s.label} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-center gap-3">
                 <div className={`p-2 rounded-lg ${s.color}`}>{s.icon}</div>
@@ -153,7 +97,8 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left: Patient List */}
           <div className="lg:col-span-2">
-            <div className="flex gap-2 mb-4">
+            {/* Risk Filter + Date Filter */}
+            <div className="flex flex-wrap gap-2 mb-4 items-center">
               {['', 'RED', 'AMBER', 'GREEN'].map((t) => (
                 <button
                   key={t}
@@ -167,13 +112,46 @@ export default function Dashboard() {
                   {t === '' ? 'All' : t}
                 </button>
               ))}
+
+              {/* Date filter */}
+              <div className="flex items-center gap-1 ml-auto">
+                <Calendar size={14} className="text-gray-400" />
+                <input
+                  type="date"
+                  value={dateFilter}
+                  onChange={e => setDateFilter(e.target.value)}
+                  className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                />
+                {dateFilter && (
+                  <button
+                    onClick={() => setDateFilter('')}
+                    className="text-xs text-gray-400 hover:text-red-500 ml-1"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
             </div>
+
+            {/* Visit date label */}
+            {dateFilter && (
+              <p className="text-xs text-blue-600 mb-3 font-medium">
+                Showing patients who visited on {dateFilter} — {displayedPatients.length} found
+              </p>
+            )}
+            {!dateFilter && (
+              <p className="text-xs text-gray-400 mb-3">
+                Sorted by visit date — most recent first
+              </p>
+            )}
 
             {loading ? (
               <div className="text-center py-12 text-gray-400">Loading patients...</div>
+            ) : displayedPatients.length === 0 ? (
+              <div className="text-center py-12 text-gray-400">No patients found for this date.</div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {patients.map((p) => (
+                {displayedPatients.map((p) => (
                   <PatientCard key={p.id} patient={p} onCall={handleCall} />
                 ))}
               </div>
@@ -183,9 +161,6 @@ export default function Dashboard() {
           {/* Right: Live Feed */}
           <div className="space-y-4">
             <AdherenceChart stats={stats} />
-            <ScheduledCallsPanel patients={allRedPatients} onCallNow={handleCall} />
-            <AdmissionQueue admissions={admissions} onRefresh={fetchAdmissions} />
-            <AppointmentQueue appointments={appointments} onRefresh={fetchAppointments} />
             <EscalationQueue messages={messages} />
             <CallTranscript messages={messages} />
           </div>
