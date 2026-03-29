@@ -9,6 +9,7 @@ from models.patient import Patient
 from models.call_record import CallRecord
 from models.appointment import Appointment
 from models.vaccination_reminder import VaccinationReminder
+from models.admission import Admission
 from nlp.intent_extractor import extract_intent
 from nlp.risk_scorer import compute_risk
 from dashboard.ws_broadcaster import broadcast_update
@@ -154,8 +155,6 @@ async def language_select(
     state["language"] = language
     print(f"[Twilio] Language selected: {language} (digits={Digits})")
 
-    # max_questions=None → build_call_script uses QUESTIONS_BY_RISK
-    # RED/AMBER → 3 questions, GREEN → 2 questions
     script = build_call_script(
         patient_name=state["patient_name"],
         condition=state["condition"],
@@ -203,7 +202,6 @@ async def record_answer(
         response.hangup()
         return Response(content=str(response), media_type="application/xml")
 
-    # Guard against Twilio double-firing the webhook
     webhook_key = f"webhook_{call_sid}_{q_index}"
     if state.get(webhook_key):
         print(f"[Twilio] Duplicate webhook ignored for {call_sid} q{q_index}")
@@ -403,6 +401,27 @@ async def _save_call_record(
                 transcript=full_transcript,
                 escalation_reason=reason,
             )
+
+        # Auto-create admission request if RED
+        if risk_tier.upper() == "RED":
+            admission = Admission(
+                patient_id = state["patient_id"],
+                call_sid   = call_sid,
+                reason     = reason or "High risk detected during call",
+                risk_tier  = risk_tier,
+                status     = "pending",
+            )
+            db.add(admission)
+            db.commit()
+            print(f"[Admission] Created for patient {state['patient_id']}")
+
+            await broadcast_update({
+                "type":         "admission",
+                "patient_id":   state["patient_id"],
+                "patient_name": state.get("patient_name"),
+                "risk_tier":    risk_tier,
+                "reason":       reason,
+            })
 
         # Auto-create appointment if patient requested one
         if nlp_output and nlp_output.get("wants_appointment"):

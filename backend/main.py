@@ -9,6 +9,7 @@ from config import settings
 from models.database import create_tables, SessionLocal
 from models.patient import Patient
 from models.appointment import Appointment
+from models.admission import Admission
 from models.vaccination import VaccinationSchedule
 from models.vaccination_reminder import VaccinationReminder
 
@@ -22,6 +23,7 @@ from routers.calls import router as calls_router
 from routers.vaccination import router as vaccination_router
 from routers.vaccination_reminder import router as vaccination_reminder_router
 from routers.analytics import router as analytics_router
+from routers.admissions import router as admissions_router
 from call_engine.twilio_router import router as twilio_router
 from api.appointments import router as appointments_router
 
@@ -52,6 +54,7 @@ app.include_router(vaccination_reminder_router)
 app.include_router(twilio_router)
 app.include_router(appointments_router)
 app.include_router(analytics_router)
+app.include_router(admissions_router)
 
 # ─── WebSocket: Live Dashboard ────────────────────────────────────────────────
 @app.websocket("/ws/dashboard")

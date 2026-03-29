@@ -6,6 +6,7 @@ import AdherenceChart from '../components/AdherenceChart'
 import EscalationQueue from '../components/EscalationQueue'
 import CallTranscript from '../components/CallTranscript'
 import AppointmentQueue from '../components/AppointmentQueue'
+import AdmissionQueue from '../components/AdmissionQueue'
 import useWebSocket from '../hooks/useWebSocket'
 import { Users, AlertTriangle, Activity, Wifi, WifiOff } from 'lucide-react'
 
@@ -17,18 +18,23 @@ export default function Dashboard() {
   const [filter, setFilter] = useState('')
   const [loading, setLoading] = useState(true)
   const [appointments, setAppointments] = useState([])
+  const [admissions, setAdmissions] = useState([])
   const { messages, connected } = useWebSocket()
   const navigate = useNavigate()
 
   useEffect(() => {
     fetchData()
     fetchAppointments()
+    fetchAdmissions()
   }, [filter])
 
   useEffect(() => {
     const latest = messages[0]
     if (latest?.type === 'appointment') {
       fetchAppointments()
+    }
+    if (latest?.type === 'admission') {
+      fetchAdmissions()
     }
   }, [messages])
 
@@ -53,6 +59,16 @@ export default function Dashboard() {
       const res = await fetch(`${BASE}/appointments`)
       const data = await res.json()
       setAppointments(data.appointments || [])
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const fetchAdmissions = async () => {
+    try {
+      const res = await fetch(`${BASE}/admissions`)
+      const data = await res.json()
+      setAdmissions(data.admissions || [])
     } catch (e) {
       console.error(e)
     }
@@ -161,6 +177,7 @@ export default function Dashboard() {
           {/* Right: Live Feed */}
           <div className="space-y-4">
             <AdherenceChart stats={stats} />
+            <AdmissionQueue admissions={admissions} onRefresh={fetchAdmissions} />
             <AppointmentQueue appointments={appointments} onRefresh={fetchAppointments} />
             <EscalationQueue messages={messages} />
             <CallTranscript messages={messages} />
