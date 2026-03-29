@@ -2,12 +2,12 @@
 Human-like conversational call engine powered by Groq (Llama 3).
 - NO press 1/3 language menu
 - NO press # to finish
-- NO beep-record-download cycle
-- Patient speaks naturally → Twilio STT → Groq → warm nurse voice
+- Unlimited turns until patient says bye
+- AI always replies to last thing patient said before closing
+- After health questions done — chats naturally like a friend
 """
 
 import httpx
-import asyncio
 import os
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import Response
@@ -24,13 +24,34 @@ from dashboard.ws_broadcaster import broadcast_update
 from models_ai.call_brain import is_urgent, get_urgent_alert
 from alerts.doctor_sms import send_doctor_alert, _send_whatsapp
 from datetime import datetime
+import asyncio
 
 router = APIRouter(prefix="/twilio", tags=["twilio"])
 BASE_URL = os.getenv("BASE_URL", "https://arogyavaani-production.up.railway.app")
 
 _call_states: dict[str, dict] = {}
 
-TURNS_BY_RISK = {"RED": 4, "AMBER": 3, "GREEN": 2}
+TURNS_BY_RISK = {"RED": 5, "AMBER": 4, "GREEN": 3}
+
+
+# ─────────────────────────────────────────────
+# BYE DETECTION
+# ─────────────────────────────────────────────
+
+BYE_KEYWORDS = [
+    "अलविदा", "बाय", "ठीक है धन्यवाद", "धन्यवाद", "शुक्रिया", "बस इतना ही",
+    "फिर मिलेंगे", "अब रखता हूं", "अब रखती हूं", "रखता हूं", "रखती हूं",
+    "काम है", "जाना है", "ठीक है बस", "बस",
+    "bye", "goodbye", "thank you", "thanks", "that's all", "ok thanks",
+    "i have to go", "talk later", "see you",
+    "निघतो", "निघते", "बरं",
+]
+
+def _patient_wants_to_end(text: str) -> bool:
+    if not text:
+        return False
+    t = text.lower().strip()
+    return any(kw in t for kw in BYE_KEYWORDS)
 
 
 # ─────────────────────────────────────────────
@@ -56,7 +77,7 @@ def _voice(language: str) -> str:
 
 
 # ─────────────────────────────────────────────
-# Groq AI — warm nurse response
+# Groq AI
 # ─────────────────────────────────────────────
 
 async def _groq_respond(
@@ -66,12 +87,13 @@ async def _groq_respond(
     language: str,
     history: list[dict],
     patient_said: str,
-    turn_number: int,
-    total_turns: int,
+    health_questions_done: bool,
+    closing: bool,
 ) -> str:
+
     lang_instruction = {
-        "hindi":    "Respond ONLY in Hindi (Devanagari script). Simple warm conversational Hindi like a nurse from a government health centre.",
-        "english":  "Respond in simple conversational Indian English.",
+        "hindi":    "Respond ONLY in Hindi (Devanagari script). Warm conversational Hindi like a caring friend who is also a nurse.",
+        "english":  "Respond in simple conversational Indian English. Warm and friendly.",
         "marathi":  "Respond ONLY in Marathi (Devanagari). Warm and conversational.",
         "tamil":    "Respond ONLY in Tamil script. Simple and warm.",
         "telugu":   "Respond ONLY in Telugu script. Simple and warm.",
@@ -79,36 +101,58 @@ async def _groq_respond(
         "bengali":  "Respond ONLY in Bengali script. Simple and warm.",
     }.get(language, "Respond ONLY in Hindi.")
 
-    is_last = (turn_number >= total_turns - 1)
-    closing_note = (
-        "\n\nThis is the LAST turn. After responding to what the patient said, "
-        "give a warm goodbye: tell them their information is safely recorded, "
-        "reassure them, and end warmly. Do NOT ask any more questions."
-    ) if is_last else ""
+    if closing:
+        mode_instruction = """
+The patient wants to end the call OR all health questions are done and you just acknowledged their last reply.
+Rules:
+- FIRST reply warmly to exactly what the patient just said — never ignore it
+- Then give a natural warm goodbye
+- Tell them their health info is safely recorded
+- Reassure them Aarogya is always here if they need anything
+- End like a caring friend saying goodbye, not a robot
+- Do NOT ask any more questions
+"""
+    elif health_questions_done:
+        mode_instruction = """
+You have finished all the health check questions. Now just chat naturally like a warm caring friend.
+Rules:
+- ALWAYS first respond to exactly what the patient said — react, show interest, show warmth
+- Ask casual friendly questions about their day, family, mood, or anything they brought up
+- Keep it light, human, and warm
+- Do NOT ask health questions anymore
+- Do NOT hang up — keep the conversation going until they say bye
+"""
+    else:
+        mode_instruction = """
+You are doing a health check call.
+Rules:
+- ALWAYS first acknowledge and react to what the patient just said — empathy before anything
+- Then naturally ask your next health question
+- Ask only ONE question per turn
+- Sound warm and human, not clinical or scripted
+- Do NOT end the call yet
+"""
 
-    system = f"""You are Aarogya — a warm caring health assistant nurse calling patients on behalf of AarogyaVaani, an AI health service for rural India.
+    system = f"""You are Aarogya — a warm caring health assistant calling patients for AarogyaVaani, a rural India health service.
 
-Patient you are calling:
+Patient:
 - Name: {patient_name}
 - Condition: {condition}
 - Risk level: {risk_tier}
 
 YOUR STYLE:
-- Sound like a kind nurse, NOT a robot or IVR system
-- Use the patient's name once or twice to feel personal
-- Always acknowledge what the patient said FIRST (show empathy), then ask your question
-- If they mention pain or distress — show genuine concern before anything else
+- Sound like a kind friend who is also a nurse — NOT a robot or IVR
+- Use the patient's name once in a while — makes it personal
+- React to what the patient says FIRST, always
+- If they mention pain, worry, or distress — show real concern before moving on
 - Keep responses to 2-3 short sentences MAX — this is a phone call
-- Ask only ONE question per turn
-- Never use bullet points, lists, or clinical jargon
+- Never use bullet points, lists, or medical jargon
 - Never say you are an AI — you are Aarogya, their health friend
+- Be warm, curious, and human
 
 {lang_instruction}
 
-YOUR GOAL across {total_turns} turns:
-Gently learn about: current symptoms, any pain or discomfort, medication adherence, and overall wellbeing.
-You are on turn {turn_number + 1} of {total_turns}.
-{closing_note}
+{mode_instruction}
 
 Output ONLY the spoken words. No stage directions. No labels. No formatting."""
 
@@ -128,27 +172,28 @@ Output ONLY the spoken words. No stage directions. No labels. No formatting."""
                 },
                 json={
                     "model": "llama-3.3-70b-versatile",
-                    "max_tokens": 180,
-                    "temperature": 0.7,
+                    "max_tokens": 200,
+                    "temperature": 0.75,
                     "messages": [{"role": "system", "content": system}] + messages,
                 },
             )
             data = resp.json()
             text = data["choices"][0]["message"]["content"].strip()
-            print(f"[Groq] Turn {turn_number + 1}: {text[:80]}...")
+            mode = "CLOSING" if closing else ("CHAT" if health_questions_done else "HEALTH")
+            print(f"[Groq] [{mode}] Turn {len(history)//2 + 1}: {text[:80]}...")
             return text
 
     except Exception as e:
         print(f"[Groq] Error: {e}")
         fallbacks = {
-            "hindi":   f"{patient_name} जी, क्षमा करें। आज आप कैसा महसूस कर रहे हैं?",
-            "english": f"{patient_name}, sorry for the delay. How are you feeling today?",
+            "hindi":   f"{patient_name} जी, क्षमा करें। आप कैसा महसूस कर रहे हैं?",
+            "english": f"Sorry {patient_name}, could you repeat that?",
         }
         return fallbacks.get(language, fallbacks["hindi"])
 
 
 # ─────────────────────────────────────────────
-# Greeting (first thing patient hears)
+# Greeting
 # ─────────────────────────────────────────────
 
 def _build_greeting(patient_name: str, language: str) -> str:
@@ -167,7 +212,7 @@ def _build_greeting(patient_name: str, language: str) -> str:
 
 
 # ─────────────────────────────────────────────
-# TwiML builder — speak + listen (no # needed)
+# TwiML helpers
 # ─────────────────────────────────────────────
 
 def _make_gather(text: str, action_url: str, language: str) -> str:
@@ -177,19 +222,18 @@ def _make_gather(text: str, action_url: str, language: str) -> str:
         action=action_url,
         method="POST",
         language=_gather_lang(language),
-        speech_timeout="auto",   # silence detection — no # needed
-        timeout=6,
-        enhanced=True,           # Twilio enhanced speech model
+        speech_timeout="auto",
+        timeout=8,
+        enhanced=True,
     )
     gather.say(text, language=_say_lang(language), voice=_voice(language))
     response.append(gather)
 
-    # Patient didn't speak — nudge once then hang up
     nudge = {
         "hindi":   "क्या आप वहाँ हैं? कृपया बोलें।",
-        "english": "Are you there? Please speak.",
+        "english": "Are you there? Please go ahead.",
         "marathi": "तुम्ही तिथे आहात का? कृपया बोला.",
-        "tamil":   "நீங்கள் இங்கே இருக்கிறீர்களா? தயவுசெய்து பேசுங்கள்.",
+        "tamil":   "நீங்கள் இங்கே இருக்கிறீர்களா?",
     }.get(language, "क्या आप वहाँ हैं?")
     response.say(nudge, language=_say_lang(language), voice=_voice(language))
     response.hangup()
@@ -234,30 +278,30 @@ async def call_answered(
             return Response(content=str(resp), media_type="application/xml")
 
         language = (patient.language or "hindi").lower()
-        total_turns = TURNS_BY_RISK.get(patient.current_risk_tier or "GREEN", 2)
+        health_turns = TURNS_BY_RISK.get(patient.current_risk_tier or "GREEN", 3)
 
         _call_states[call_sid] = {
-            "patient_id":         patient.id,
-            "patient_name":       patient.name,
-            "condition":          patient.condition or "",
-            "risk_tier":          patient.current_risk_tier or "GREEN",
-            "language":           language,
-            "total_turns":        total_turns,
-            "turn_number":        0,
-            "history":            [],        # Groq conversation history
-            "transcript_parts":   [],
-            "overall_risk_score": patient.overall_risk_score or 0,
-            "patient_phone":      patient.phone or "",
-            "module_type":        patient.module_type or "post_discharge",
-            "record_saved":       False,
+            "patient_id":           patient.id,
+            "patient_name":         patient.name,
+            "condition":            patient.condition or "",
+            "risk_tier":            patient.current_risk_tier or "GREEN",
+            "language":             language,
+            "health_turns":         health_turns,   # how many turns for health questions
+            "turn_number":          0,              # total turns so far
+            "history":              [],             # full Groq conversation history
+            "transcript_parts":     [],
+            "overall_risk_score":   patient.overall_risk_score or 0,
+            "patient_phone":        patient.phone or "",
+            "module_type":          patient.module_type or "post_discharge",
+            "record_saved":         False,
+            "health_done":          False,          # health questions completed flag
+            "closing_sent":         False,          # goodbye already sent flag
         }
     finally:
         db.close()
 
     state = _call_states[call_sid]
     greeting = _build_greeting(state["patient_name"], language)
-
-    # Add greeting to history so Groq has context
     state["history"].append({"role": "assistant", "content": greeting})
 
     action_url = f"{BASE_URL}/twilio/conversation?call_sid={call_sid}"
@@ -285,12 +329,13 @@ async def conversation_turn(
         resp.hangup()
         return Response(content=str(resp), media_type="application/xml")
 
-    language     = state["language"]
-    turn_number  = state["turn_number"]
-    total_turns  = state["total_turns"]
-    patient_said = SpeechResult.strip()
+    language      = state["language"]
+    patient_said  = SpeechResult.strip()
+    turn_number   = state["turn_number"]
+    health_turns  = state["health_turns"]
+    health_done   = state["health_done"]
 
-    print(f"[Twilio] Turn {turn_number + 1}/{total_turns} | Patient said: '{patient_said}'")
+    print(f"[Twilio] Turn {turn_number + 1} | Health done: {health_done} | Patient said: '{patient_said}'")
 
     # Save transcript
     if patient_said:
@@ -315,26 +360,40 @@ async def conversation_turn(
             "nlp":          {},
         })
 
-    # Groq generates warm nurse response
+    # Mark health questions as done after health_turns
+    if not health_done and turn_number >= health_turns:
+        state["health_done"] = True
+        health_done = True
+
+    # Patient wants to end — reply to last thing then close
+    patient_ending = _patient_wants_to_end(patient_said)
+
+    # Closing condition:
+    # 1. Patient said bye, OR
+    # 2. Health done AND we already had at least 1 chat turn after health
+    chat_turns_after_health = turn_number - health_turns
+    closing = patient_ending or (health_done and chat_turns_after_health >= 1)
+
+    # Generate Groq response
     ai_response = await _groq_respond(
-        patient_name  = state["patient_name"],
-        condition     = state["condition"],
-        risk_tier     = state["risk_tier"],
-        language      = language,
-        history       = state["history"],
-        patient_said  = patient_said,
-        turn_number   = turn_number,
-        total_turns   = total_turns,
+        patient_name         = state["patient_name"],
+        condition            = state["condition"],
+        risk_tier            = state["risk_tier"],
+        language             = language,
+        history              = state["history"],
+        patient_said         = patient_said,
+        health_questions_done= health_done,
+        closing              = closing,
     )
 
-    # Update conversation history
+    # Update history
     if patient_said:
         state["history"].append({"role": "user",      "content": patient_said})
     state["history"].append(    {"role": "assistant", "content": ai_response})
     state["turn_number"] += 1
 
-    # Last turn — save record and hang up
-    if state["turn_number"] >= total_turns:
+    # If closing — save record and hang up after speaking
+    if closing:
         full_transcript = " | ".join(state["transcript_parts"])
         nlp_output = {}
         risk_tier  = state["risk_tier"]
@@ -354,7 +413,7 @@ async def conversation_turn(
         twiml = _make_say_and_hangup(ai_response, language)
         return Response(content=twiml, media_type="application/xml")
 
-    # More turns — speak response and listen again
+    # Continue conversation — speak and listen again
     action_url = f"{BASE_URL}/twilio/conversation?call_sid={call_sid}"
     twiml = _make_gather(ai_response, action_url, language)
     return Response(content=twiml, media_type="application/xml")
@@ -374,9 +433,8 @@ async def call_status(
     call_sid = CallSid or request.query_params.get("CallSid", "")
     print(f"[Twilio] Status: {call_sid} → {CallStatus} ({CallDuration}s)")
 
-    # If call ended early (no-answer, busy, failed) — save partial record
     state = _call_states.get(call_sid)
-    if state and not state.get("record_saved") and CallStatus in ("no-answer", "busy", "failed"):
+    if state and not state.get("record_saved") and CallStatus in ("no-answer", "busy", "failed", "completed"):
         await _save_call_record(call_sid, state, state["risk_tier"], False, "", {}, CallStatus)
 
     _call_states.pop(call_sid, None)
@@ -416,7 +474,7 @@ async def vaccination_call_status(request: Request):
 
 
 # ─────────────────────────────────────────────
-# Save call record (unchanged logic)
+# Save call record
 # ─────────────────────────────────────────────
 
 async def _save_call_record(
@@ -464,7 +522,7 @@ async def _save_call_record(
             "transcript":        full_transcript,
             "nlp":               nlp_output,
         })
-        print(f"[Twilio] Saved. Patient:{state['patient_id']} Risk:{risk_tier}")
+        print(f"[Twilio] Saved. Patient:{state['patient_id']} Risk:{risk_tier} Turns:{state['turn_number']}")
 
         if escalate or risk_tier.upper() == "RED":
             send_doctor_alert(
