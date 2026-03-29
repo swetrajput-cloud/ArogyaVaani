@@ -87,6 +87,10 @@ export default function Dashboard() {
             className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700 transition">
             🎯 Call Simulator
           </button>
+          <button onClick={() => navigate('/scheduler')}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 transition">
+            📅 Scheduler
+          </button>
           {connected
             ? <span className="flex items-center gap-1 text-xs text-green-600"><Wifi size={13} /> Live</span>
             : <span className="flex items-center gap-1 text-xs text-gray-400"><WifiOff size={13} /> Offline</span>}
@@ -136,7 +140,6 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Right sidebar */}
           <div className="space-y-4">
             <AdherenceChart stats={stats} />
             <AppointmentQueue appointments={appointments} onRefresh={fetchAppointments} />
