@@ -20,12 +20,15 @@ TWILIO_URL = f"https://api.twilio.com/2010-04-01/Accounts/{settings.TWILIO_ACCOU
 
 class RegisterBabyRequest(BaseModel):
     patient_id: int
-    baby_dob:   str   # format: YYYY-MM-DD
+    baby_dob:   str
+
+
+class TriggerNowRequest(BaseModel):
+    reminder_id: int
 
 
 @router.post("/register")
 def register_baby(req: RegisterBabyRequest):
-    """Register a baby's DOB and generate all vaccination reminders."""
     dob = date.fromisoformat(req.baby_dob)
     result = create_reminders_for_patient(req.patient_id, dob)
     return result
@@ -33,13 +36,11 @@ def register_baby(req: RegisterBabyRequest):
 
 @router.get("/due-today")
 def due_today():
-    """List all reminders due to be called today."""
     return {"reminders": get_reminders_due_today()}
 
 
 @router.get("/all")
 def all_reminders():
-    """List all reminders in DB."""
     db = SessionLocal()
     try:
         reminders = db.query(VaccinationReminder).order_by(
@@ -67,17 +68,16 @@ def all_reminders():
 
 
 async def _make_twilio_call(phone: str, reminder_id: int, vaccine_name: str, due_date: str):
-    """Make a single Twilio call for a vaccination reminder."""
     twiml_url = f"{BASE_URL}/twilio/vaccination-reminder-twiml?vaccine={vaccine_name}&due={due_date}"
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.post(
                 TWILIO_URL,
                 data={
-                    "To":    phone,
-                    "From":  settings.TWILIO_PHONE_NUMBER,
-                    "Url":   twiml_url,
-                    "Method": "POST",
+                    "To":             phone,
+                    "From":           settings.TWILIO_PHONE_NUMBER,
+                    "Url":            twiml_url,
+                    "Method":         "POST",
                     "StatusCallback": f"{BASE_URL}/twilio/vaccination-status?reminder_id={reminder_id}",
                 },
                 auth=(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN),
@@ -95,7 +95,6 @@ async def _make_twilio_call(phone: str, reminder_id: int, vaccine_name: str, due
 
 @router.post("/trigger-calls")
 async def trigger_reminder_calls(background_tasks: BackgroundTasks):
-    """Trigger Twilio calls for all reminders due today."""
     reminders = get_reminders_due_today()
     if not reminders:
         return {"message": "No reminders due today", "called": 0}
@@ -111,3 +110,31 @@ async def trigger_reminder_calls(background_tasks: BackgroundTasks):
         called += 1
 
     return {"message": f"Triggered {called} reminder calls", "called": called}
+
+
+@router.post("/trigger-now")
+async def trigger_single_now(req: TriggerNowRequest):
+    """Force trigger a single reminder call right now — for testing."""
+    db = SessionLocal()
+    try:
+        r = db.query(VaccinationReminder).filter(
+            VaccinationReminder.id == req.reminder_id
+        ).first()
+        if not r:
+            return {"error": "Reminder not found"}
+
+        call_sid = await _make_twilio_call(
+            phone=r.patient_phone,
+            reminder_id=r.id,
+            vaccine_name=r.vaccine_name,
+            due_date=str(r.due_date),
+        )
+        return {
+            "called":      True,
+            "call_sid":    call_sid,
+            "vaccine":     r.vaccine_name,
+            "phone":       r.patient_phone,
+            "due_date":    str(r.due_date),
+        }
+    finally:
+        db.close()
