@@ -12,6 +12,7 @@ from models.appointment import Appointment
 from models.admission import Admission
 from models.vaccination import VaccinationSchedule
 from models.vaccination_reminder import VaccinationReminder
+from models.scheduled_call import ScheduledCall
 
 # ─── Routers ──────────────────────────────────────────────────────────────────
 from routers.inbound import router as inbound_router
@@ -24,14 +25,16 @@ from routers.vaccination import router as vaccination_router
 from routers.vaccination_reminder import router as vaccination_reminder_router
 from routers.analytics import router as analytics_router
 from routers.admissions import router as admissions_router
-from routers.twilio import router as twilio_router        # ← Groq conversational router
+from routers.twilio import router as twilio_router
+from routers.scheduler import router as scheduler_router          # ← NEW
 from api.appointments import router as appointments_router
 
 # ─── WebSocket / Dashboard ────────────────────────────────────────────────────
 from dashboard.ws_broadcaster import connect_client, disconnect_client
 
-# ─── Follow-up Scheduler ──────────────────────────────────────────────────────
+# ─── Schedulers ───────────────────────────────────────────────────────────────
 from modules.followup_scheduler import run_followup_scheduler
+from modules.manual_scheduler import run_manual_scheduler         # ← NEW
 
 # ─── App Init ─────────────────────────────────────────────────────────────────
 app = FastAPI(title=settings.APP_NAME)
@@ -54,6 +57,7 @@ app.include_router(calls_router)
 app.include_router(vaccination_router)
 app.include_router(vaccination_reminder_router)
 app.include_router(twilio_router)
+app.include_router(scheduler_router)                              # ← NEW
 app.include_router(appointments_router)
 app.include_router(analytics_router)
 app.include_router(admissions_router)
@@ -231,6 +235,8 @@ async def startup():
     seed_vaccination_schedule()
     asyncio.create_task(run_followup_scheduler())
     print("[Startup] Follow-up scheduler started")
+    asyncio.create_task(run_manual_scheduler())                   # ← NEW
+    print("[Startup] Manual call scheduler started")              # ← NEW
 
 # ─── Root ─────────────────────────────────────────────────────────────────────
 @app.get('/')
