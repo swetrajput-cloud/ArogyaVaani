@@ -50,6 +50,16 @@ def _voice(language: str) -> str:
     return voices.get(language, "Polly.Aditi")
 
 
+def _finish_instruction(language: str) -> str:
+    instructions = {
+        "hindi":   " बोलने के बाद 1 दबाएं।",
+        "english": " Press 1 when done speaking.",
+        "marathi": " बोलून झाल्यावर 1 दाबा।",
+        "tamil":   " பேசி முடிந்தால் 1 அழுத்துங்கள்।",
+    }
+    return instructions.get(language, " बोलने के बाद 1 दबाएं।")
+
+
 @router.post("/answered")
 async def call_answered(
     request: Request,
@@ -159,16 +169,17 @@ async def language_select(
 
     greeting = script["greeting"]
     first_q = script["questions"][0]["text"] if script["questions"] else script["closing"]
+    finish_instr = _finish_instruction(language)
 
     response = VoiceResponse()
     response.say(greeting, language=_twiml_lang(language), voice=_voice(language))
     response.pause(length=1)
-    response.say(first_q, language=_twiml_lang(language), voice=_voice(language))
+    response.say(first_q + finish_instr, language=_twiml_lang(language), voice=_voice(language))
     response.record(
         action=f"{BASE_URL}/twilio/record-answer?call_sid={call_sid}&q_index=0",
         method="POST",
         max_length=25,
-        finish_on_key="#",
+        finish_on_key="1",
         play_beep=True,
         transcribe=False,
         timeout=8,
@@ -266,12 +277,13 @@ async def record_answer(
 
     if next_index < len(script["questions"]):
         next_q = script["questions"][next_index]["text"]
-        response.say(next_q, language=_twiml_lang(language), voice=_voice(language))
+        finish_instr = _finish_instruction(language)
+        response.say(next_q + finish_instr, language=_twiml_lang(language), voice=_voice(language))
         response.record(
             action=f"{BASE_URL}/twilio/record-answer?call_sid={call_sid}&q_index={next_index}",
             method="POST",
             max_length=25,
-            finish_on_key="#",
+            finish_on_key="1",
             play_beep=True,
             transcribe=False,
             timeout=8,
