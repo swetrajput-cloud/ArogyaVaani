@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
 
     DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/arogyavaani"
-DATABASE_URL=postgresql://postgres:dyeIDCDlLabrIpEaRDWSvbYxIrfgLNzX@postgres.railway.internal:5432/railway
+
     WS_SECRET: str = "ws_secret_key"
 
     class Config:
